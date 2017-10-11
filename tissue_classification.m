@@ -1,14 +1,14 @@
 function [] = tissue_classification()
 
-dir_main = '/gpfs/home/fas/duncan/jy498/Research/Junlin'
-dir_scratch60 = '/gpfs/scratch60/fas/duncan/jy498'
+dir_main = './'
+dir_scratch60 = './scratch'
 %load relevant global variables 
 %load('data_light.mat'); %load relevant global variables 
-load([dir_main, '/Data/data.mat']);
-load([dir_main, '/Parameters/train_indices.mat']); %holds subset of training patients for each round of cv
-load([dir_main, '/Parameters/test_indices.mat']); %holds subset of training patients for each round of cv
-load([dir_main, '/Parameters/locations.mat']); %holds subset of training patients for each round of cv
-load([dir_main, '/Parameters/train.mat']); %holds subset of training patients for each round of cv
+load([dir_main, './data/data.mat']);
+load([dir_main, './params/train_indices.mat']); %holds subset of training patients for each round of cv
+load([dir_main, './params/test_indices.mat']); %holds subset of training patients for each round of cv
+load([dir_main, './params/locations.mat']); %holds subset of training patients for each round of cv
+load([dir_main, './params/train.mat']); %holds subset of training patients for each round of cv
 
 %initialize global variables 
 ntrees=1000; %trees in each random forest 
@@ -79,7 +79,7 @@ for model =6
         %for td=1:num_patients
             
             %load corresponding patient 
-            f=load([dir_main,'/Feature/features_',num2str(td),'.mat']);
+            f=load([dir_main,'./features/features_',num2str(td),'.mat']);
             f=f.f;
             
             disp(['Computing classification for patient...',num2str(td)]);
@@ -106,7 +106,7 @@ for model =6
             else
                 %read in binary file holding auto-context features for
                 %patient
-                fileID = fopen([dir_scratch60, '/Feature/context_',num2str(td),'.bin'],'r');
+                fileID = fopen([dir_scratch60, './features/context_',num2str(td),'.bin'],'r');
                 auto_context_features = fread(fileID,[numel(f.labels),...
                     num_context_features],'double');
                 fclose(fileID);

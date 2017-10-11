@@ -1,15 +1,9 @@
-% textscan(fopen('Test.txt','r'),'%s','Delimiter','\n')
+
 
 %input 'patients' should be cell array of patient IDs
-function data = acquire_data(patients)
+function data = acquire_data(patients, dest)
 
 disp('Acquiring patient data...');
-dest = './training_data/'
-
-if exist([dest,patients{1},'/nii_files/whole_liver.nii'],'file')>0
-    disp('Data already acquired!')
-    return
-end
 
 %parfor i=1:length(patients)
 for i=1:length(patients)
@@ -30,94 +24,96 @@ data.patID = patient;
 
 R=1.75; %desired low-resolution in mm
 
-%reslice the pre, 20s, 70s, to make them isotropic
-temp = load_nii([dest,patient,'/nii_files/20s.nii.gz']);
-temp_res(1) = temp.hdr.dime.pixdim(2); %extract pixel volume
-temp_res(2) = temp.hdr.dime.pixdim(3); % dido
-temp_res(3) = temp.hdr.dime.pixdim(4); % dido
+if exist([dest,patient,'/nii_files/whole_liver.nii'],'file') == 0
+    %reslice the pre, 20s, 70s, to make them isotropic
+    temp = load_nii([dest,patient,'/nii_files/20s.nii.gz']);
+    temp_res(1) = temp.hdr.dime.pixdim(2); %extract pixel volume
+    temp_res(2) = temp.hdr.dime.pixdim(3); % dido
+    temp_res(3) = temp.hdr.dime.pixdim(4); % dido
 
-[N1,N2,N3] = size(double(flip_image(temp.img)));
+    [N1,N2,N3] = size(double(flip_image(temp.img)));
 
-%make nii file from whole liver segmentation 
-fpath = [dest,patient,'/segs/whole_liver.ids'];
-liver_mask = get_mask(fpath,N1,N2,N3);
-liver_nii = make_nii(flip_image(liver_mask),temp_res);
-save_nii(liver_nii,[dest,patient,'/nii_files/whole_liver.nii']);
+    %make nii file from whole liver segmentation 
+    fpath = [dest,patient,'/segs/whole_liver.ids'];
+    liver_mask = get_mask(fpath,N1,N2,N3);
+    liver_nii = make_nii(flip_image(liver_mask),temp_res);
+    save_nii(liver_nii,[dest,patient,'/nii_files/whole_liver.nii']);
 
-%flags indicating the existence of vessel, tumor, and necrosis
-%segmentations 
-vessel_exist = exist([dest,patient,'/segs/vessel.ids'],'file')>0;
-tumor_exist = exist([dest,patient,'/segs/tumor.ids'],'file')>0;
-necrosis_exist = exist([dest,patient,'/segs/nec.ids'],'file')>0;
+    %flags indicating the existence of vessel, tumor, and necrosis
+    %segmentations 
+    vessel_exist = exist([dest,patient,'/segs/vessel.ids'],'file')>0;
+    tumor_exist = exist([dest,patient,'/segs/tumor.ids'],'file')>0;
+    necrosis_exist = exist([dest,patient,'/segs/nec.ids'],'file')>0;
 
-%make nii file from vessel segmentation 
-if(vessel_exist)
-    fpath = [dest,patient,'/segs/vessel.ids'];
-    vessel_mask = get_mask(fpath,N1,N2,N3);
-else
-    vessel_mask = zeros(N1,N2,N3);
+    %make nii file from vessel segmentation 
+    if(vessel_exist)
+        fpath = [dest,patient,'/segs/vessel.ids'];
+        vessel_mask = get_mask(fpath,N1,N2,N3);
+    else
+        vessel_mask = zeros(N1,N2,N3);
+    end
+    vessel_nii = make_nii(flip_image(vessel_mask),temp_res);
+    save_nii(vessel_nii,[dest,patient,'/nii_files/vessel.nii']);
+
+    %make nii file from tumor segmentation 
+    if(tumor_exist)
+        fpath = [dest,patient,'/segs/tumor.ids'];
+        tumor_mask = get_mask(fpath,N1,N2,N3);
+    else
+        tumor_mask = zeros(N1,N2,N3);
+    end
+    tumor_nii = make_nii(flip_image(tumor_mask),temp_res);
+    save_nii(tumor_nii,[dest,patient,'/nii_files/tumor.nii']);
+
+    %make nii file from tumor segmentation 
+    if(necrosis_exist)
+        necrosis_mask = get_mask([dest,patient,'/segs/nec.ids'],N1,N2,N3);
+    else
+        necrosis_mask = zeros(N1,N2,N3);
+    end
+    necrosis_nii = make_nii(flip_image(necrosis_mask),temp_res);
+    save_nii(necrosis_nii,[dest,patient,'/nii_files/necrosis.nii']);
+
+    %reslice 20s image to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/20s.nii.gz'],...
+        [dest,patient,'/nii_files/20s_isotropic.nii.gz'],...
+        [R,R,R]);
+
+    %reslice pre image to be isotropic
+    reslice_nii([dest,patient,'/nii_files/pre_reg.nii'],...
+        [dest,patient,'/nii_files/pre_reg_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice 70s to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/70s_reg.nii'],...
+        [dest,patient,'/nii_files/70s_reg_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice whole liver segmentation to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/whole_liver.nii'],...
+        [dest,patient,'/nii_files/whole_liver_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice vessel segmentation to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/vessel.nii'],...
+        [dest,patient,'/nii_files/vessel_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice necrosis segmentation to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/necrosis.nii'],...
+        [dest,patient,'/nii_files/necrosis_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice tumor segmentation to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/tumor.nii'],...
+        [dest,patient,'/nii_files/tumor_isotropic.nii'],...
+        [R,R,R]);
+
+    %reslice t2 image bias field estimate to be isotropic 
+    reslice_nii([dest,patient,'/nii_files/t2_bfc_reg.nii'],...
+        [dest,patient,'/nii_files/t2_bfc_reg_isotropic.nii'],...
+        [R,R,R]);
 end
-vessel_nii = make_nii(flip_image(vessel_mask),temp_res);
-save_nii(vessel_nii,[dest,patient,'/nii_files/vessel.nii']);
-
-%make nii file from tumor segmentation 
-if(tumor_exist)
-    fpath = [dest,patient,'/segs/tumor.ids'];
-    tumor_mask = get_mask(fpath,N1,N2,N3);
-else
-    tumor_mask = zeros(N1,N2,N3);
-end
-tumor_nii = make_nii(flip_image(tumor_mask),temp_res);
-save_nii(tumor_nii,[dest,patient,'/nii_files/tumor.nii']);
-
-%make nii file from tumor segmentation 
-if(necrosis_exist)
-    necrosis_mask = get_mask([dest,patient,'/segs/nec.ids'],N1,N2,N3);
-else
-    necrosis_mask = zeros(N1,N2,N3);
-end
-necrosis_nii = make_nii(flip_image(necrosis_mask),temp_res);
-save_nii(necrosis_nii,[dest,patient,'/nii_files/necrosis.nii']);
-
-%reslice 20s image to be isotropic 
-reslice_nii([dest,patient,'/nii_files/20s.nii.gz'],...
-    [dest,patient,'/nii_files/20s_isotropic.nii.gz'],...
-    [R,R,R]);
-
-%reslice pre image to be isotropic
-reslice_nii([dest,patient,'/nii_files/pre_reg.nii'],...
-    [dest,patient,'/nii_files/pre_reg_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice 70s to be isotropic 
-reslice_nii([dest,patient,'/nii_files/70s_reg.nii'],...
-    [dest,patient,'/nii_files/70s_reg_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice whole liver segmentation to be isotropic 
-reslice_nii([dest,patient,'/nii_files/whole_liver.nii'],...
-    [dest,patient,'/nii_files/whole_liver_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice vessel segmentation to be isotropic 
-reslice_nii([dest,patient,'/nii_files/vessel.nii'],...
-    [dest,patient,'/nii_files/vessel_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice necrosis segmentation to be isotropic 
-reslice_nii([dest,patient,'/nii_files/necrosis.nii'],...
-    [dest,patient,'/nii_files/necrosis_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice tumor segmentation to be isotropic 
-reslice_nii([dest,patient,'/nii_files/tumor.nii'],...
-    [dest,patient,'/nii_files/tumor_isotropic.nii'],...
-    [R,R,R]);
-
-%reslice t2 image bias field estimate to be isotropic 
-reslice_nii([dest,patient,'/nii_files/t2_bfc_reg.nii'],...
-    [dest,patient,'/nii_files/t2_bfc_reg_isotropic.nii'],...
-    [R,R,R]);
 
 %load pre image 
 data.pre = load_nii([dest,patient,'/nii_files/pre_reg_isotropic.nii']);

@@ -1,18 +1,27 @@
-dir_patients = dir('./training_data');
+% textscan(fopen('config.txt','r'),'%s','Delimiter','\n')
+
 addpath('./utils/NIfTI_20140122');
+train_dir = './training_data/';
+train_data_dir = './data';
+feature_dir = './features';
+param_dir = './params';
+
+patients = dir(train_dir);
+patients = {patients.name};
 % dir_patients = {dir_patients(4:58).name};
-data = acquire_data(dir_patients);
-save('./Data/data.mat','data','-v7.3');
+data = acquire_data(patients(3:end), train_dir);
+
+save([train_data_dir,'/data.mat'],'data','-v7.3');
 for i = 1:length(data)
     data_i = data{i};
-    save(['./Data/data_',num2str(i),'.mat'],'data_i')   
+    save([train_data_dir,'/data_',num2str(i),'.mat'],'data_i')   
 end
-load_data_dir = './Data/data.mat'
-load_data_pats = './Data'
-[train,train_indices,test_indices] = compute_features(load_data_dir,load_data_pats);
-save('./Parameters/train.mat','train');
-save('./Parameters/train_indices.mat','train_indices');
-save('./Parameters/test_indices.mat','test_indices');
+
+[train,train_indices,test_indices] = compute_features([train_data_dir,'/data.mat'], train_data_dir);
+
+save('./params/train.mat','train');
+save('./params/train_indices.mat','train_indices');
+save('./params/test_indices.mat','test_indices');
 
 intensities_bin;
 tissue_classification;

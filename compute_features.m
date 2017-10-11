@@ -177,7 +177,7 @@ function [] =save_dummy(f,i)
 
 %save_dest='C:/Users/John/Desktop/RESULTS/57PATS_July/patient_features';
 
-save_dest='/gpfs/home/fas/duncan/jy498/Research/Junlin/Feature';
+save_dest='./features';
 save([save_dest,'/features_',num2str(i),'.mat'],'f','-v7.3');
 
 return 
@@ -240,8 +240,7 @@ end
 % function: generate_training_data %
 function train = generate_training_data(train,features)
 
-%load_dir='C:/Users/John/Desktop/RESULTS/57PATS_July/patient_features';
-load_dir='/gpfs/home/fas/duncan/jy498/Research/Junlin/Feature';
+load_dir='./features';
 num_models = length(train.train_labels); 
 
 load([load_dir,'/features_',num2str(1),'.mat']);
