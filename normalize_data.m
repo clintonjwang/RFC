@@ -133,7 +133,7 @@ end
 clear maps
 
 %place to save data files after processing 
-save_dir='/gpfs/home/fas/duncan/jy498/Research/Junlin/Data';
+save_dir='./data';
 
 for i=1:length(data)
     data_i = data{i};

@@ -1,6 +1,7 @@
 % textscan(fopen('config.txt','r'),'%s','Delimiter','\n')
-
-addpath('./utils/NIfTI_20140122');
+addpath(genpath('./utils'));
+addpath(genpath('./scripts'));
+addpath(genpath('./additional'));
 train_dir = './training_data/';
 train_data_dir = './data';
 feature_dir = './features';
