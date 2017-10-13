@@ -9,9 +9,9 @@ for i=1:num_train_pats
     vessel_temp(i) = length(find(features{train_indices(i)}==2));
 end
 
-normal_med = median(normal_temp);
-cancer_med = median(cancer_temp);
-vessel_med = median(vessel_temp); 
+normal_med = round(median(normal_temp));
+cancer_med = round(median(cancer_temp));
+vessel_med = round(median(vessel_temp)); 
 necrosis_med = 1000; 
 
 normal_locs=[];

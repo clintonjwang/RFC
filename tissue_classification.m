@@ -1,14 +1,15 @@
 function [] = tissue_classification()
 
-dir_main = './'
-dir_scratch60 = './scratch'
+dir_main = '.';
+dir_scratch60 = './features';
+dir_feat = './features';
 %load relevant global variables 
 %load('data_light.mat'); %load relevant global variables 
-load([dir_main, './data/data.mat']);
-load([dir_main, './params/train_indices.mat']); %holds subset of training patients for each round of cv
-load([dir_main, './params/test_indices.mat']); %holds subset of training patients for each round of cv
-load([dir_main, './params/locations.mat']); %holds subset of training patients for each round of cv
-load([dir_main, './params/train.mat']); %holds subset of training patients for each round of cv
+load('./data/data.mat');
+load('./params/train_indices.mat'); %holds subset of training patients for each round of cv
+load('./params/test_indices.mat'); %holds subset of training patients for each round of cv
+load('./params/locations.mat'); %holds subset of training patients for each round of cv
+load('./params/train.mat'); %holds subset of training patients for each round of cv
 
 %initialize global variables 
 ntrees=1000; %trees in each random forest 
@@ -22,8 +23,7 @@ num_models = length(train.train_labels); %number of folds of cv
 num_patients = length(data); %total number of patients 
 min_leaf_size=50; %random forest parameter: mininum leaf size 
 op = statset('UseParallel',1); %random forest parameter: train trees in parallel 
-%parpool(4); %number of cores to distribute processing over
-parpool(12);
+parpool(4); %number of cores to distribute processing over
 num_classes=4; %number of tissue classes 
 M = generate_spherical_masks1(sl_spherical); %generate spherical masks 
 
@@ -45,7 +45,7 @@ for model =6
         %clear trees from previous round of label-context
         clear C
         %calculate number of predictors (depending on r)
-        load([dir_main,'/Feature/features_1.mat']);
+        load([dir_feat,'/features_1.mat']);
         if(r==1)
             num_predictors=f.num_intensity_features;
         else
@@ -79,13 +79,13 @@ for model =6
         %for td=1:num_patients
             
             %load corresponding patient 
-            f=load([dir_main,'./features/features_',num2str(td),'.mat']);
+            f=load([dir_feat,'/features_',num2str(td),'.mat']);
             f=f.f;
             
             disp(['Computing classification for patient...',num2str(td)]);
             
             %read in appearance feature binary file for patient 
-            fileID = fopen([dir_scratch60, '/Feature/intensities_',num2str(td),'.bin'],'r');
+            fileID = fopen([dir_scratch60, '/intensities_',num2str(td),'.bin'],'r');
             intensities = fread(fileID,[numel(f.labels),...
                 f.num_intensity_features],'double');
             fclose(fileID);
@@ -106,7 +106,7 @@ for model =6
             else
                 %read in binary file holding auto-context features for
                 %patient
-                fileID = fopen([dir_scratch60, './features/context_',num2str(td),'.bin'],'r');
+                fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'r');
                 auto_context_features = fread(fileID,[numel(f.labels),...
                     num_context_features],'double');
                 fclose(fileID);
@@ -175,7 +175,7 @@ end
 %dummy function to allow variable saves inside parfor-loop 
 function [] = save_dummy(f,td,dir_main)
 
-save([dir_main, '/Feature/features_',num2str(td),'.mat'],'f','-v7.3');
+save(['./features/features_',num2str(td),'.mat'],'f','-v7.3');
 
 return
 end
@@ -183,7 +183,7 @@ end
 %dummy function to allow binary file saves inside parfor-loop 
 function [] = save_dummy_binary(A,td,dir_scratch60)
 
-fileID = fopen([dir_scratch60, '/Feature/context_',num2str(td),'.bin'],'w');
+fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'w');
 fwrite(fileID,A,'double');
 fclose(fileID);
 
@@ -261,7 +261,7 @@ parfor td=1:num_patients
     td
     
     %load patient features
-    f=load([dir_main, '/Feature/features_',num2str(td),'.mat']);
+    f=load(['./features/features_',num2str(td),'.mat']);
     f=f.f;
     
     %compute label context features

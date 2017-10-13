@@ -25,4 +25,5 @@ save('./params/train_indices.mat','train_indices');
 save('./params/test_indices.mat','test_indices');
 
 intensities_bin;
+%delete(gcp('nocreate'));
 tissue_classification;
