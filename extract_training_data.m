@@ -59,10 +59,8 @@ for train_indx=1:num_train_pats
     
 end
 
-%T_par=200000; 
-%T_other=50000; 
-T_par = 6000;
-T_other = 1500;
+T_par=200000; 
+T_other=50000;
 
 p=randsample(length(normal_locs),T_par); 
 normal_locs=normal_locs(p); 
