@@ -2,7 +2,7 @@
 addpath(genpath('./utils'));
 addpath(genpath('./scripts'));
 addpath(genpath('./additional'));
-train_dir = './raw_imgs';
+train_dir = './raw_imgs/';
 train_data_dir = './data';
 feature_dir = './features';
 param_dir = './params';

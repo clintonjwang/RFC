@@ -15,15 +15,13 @@ return
 
 function data = get_liver_data(patient, dest)
 
-%directory containing folders with patient data 
-%dest='C:/Users/John/Desktop/Data/TissueClassification/';
-
-    
+segs_dir = '/new segs';
 disp(patient);
 data.patID = patient;
 
 R=1.75; %desired low-resolution in mm
 
+fpath=dir(fullfile([dest, patient, segs_dir], '**/wholeliver.ids'));
 if exist([dest,patient,'/nii_files/whole_liver.nii'],'file') == 0
     %reslice the pre, 20s, 70s, to make them isotropic
     temp = load_nii([dest,patient,'/nii_files/20s.nii.gz']);
@@ -33,21 +31,22 @@ if exist([dest,patient,'/nii_files/whole_liver.nii'],'file') == 0
 
     [N1,N2,N3] = size(double(flip_image(temp.img)));
 
-    %make nii file from whole liver segmentation 
-    fpath = [dest,patient,'/segs/whole_liver.ids'];
-    liver_mask = get_mask(fpath,N1,N2,N3);
+    %make nii file from whole liver segmentation
+    fpath=dir(fullfile([dest, patient, segs_dir], '**/wholeliver.ids'));
+    liver_mask = get_mask([fpath.folder, fpath.name],N1,N2,N3);
     liver_nii = make_nii(flip_image(liver_mask),temp_res);
     save_nii(liver_nii,[dest,patient,'/nii_files/whole_liver.nii']);
 
     %flags indicating the existence of vessel, tumor, and necrosis
     %segmentations 
-    vessel_exist = exist([dest,patient,'/segs/vessel.ids'],'file')>0;
-    tumor_exist = exist([dest,patient,'/segs/tumor.ids'],'file')>0;
-    necrosis_exist = exist([dest,patient,'/segs/nec.ids'],'file')>0;
+    f=dir(fullfile([dest, patient, segs_dir], '**/vessels.ids'));
+    vessel_exist = ~isempty(f);
+    tumor_exist = exist([dest,patient,segs_dir, '/tumor.ids'],'file')>0;
+    necrosis_exist = exist([dest,patient,segs_dir, '/nec.ids'],'file')>0;
 
     %make nii file from vessel segmentation 
     if(vessel_exist)
-        fpath = [dest,patient,'/segs/vessel.ids'];
+        fpath = [dest,patient,segs_dir, '/vessel.ids'];
         vessel_mask = get_mask(fpath,N1,N2,N3);
     else
         vessel_mask = zeros(N1,N2,N3);
@@ -57,7 +56,7 @@ if exist([dest,patient,'/nii_files/whole_liver.nii'],'file') == 0
 
     %make nii file from tumor segmentation 
     if(tumor_exist)
-        fpath = [dest,patient,'/segs/tumor.ids'];
+        fpath = [dest,patient,segs_dir, '/tumor.ids'];
         tumor_mask = get_mask(fpath,N1,N2,N3);
     else
         tumor_mask = zeros(N1,N2,N3);
@@ -67,7 +66,7 @@ if exist([dest,patient,'/nii_files/whole_liver.nii'],'file') == 0
 
     %make nii file from tumor segmentation 
     if(necrosis_exist)
-        necrosis_mask = get_mask([dest,patient,'/segs/nec.ids'],N1,N2,N3);
+        necrosis_mask = get_mask([dest,patient,segs_dir, '/nec.ids'],N1,N2,N3);
     else
         necrosis_mask = zeros(N1,N2,N3);
     end
