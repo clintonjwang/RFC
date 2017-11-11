@@ -1,15 +1,25 @@
-% textscan(fopen('config.txt','r'),'%s','Delimiter','\n')
-addpath(genpath('./utils'));
-addpath(genpath('./scripts'));
-addpath(genpath('./additional'));
-train_dir = './raw_imgs/';
-train_data_dir = './data';
-feature_dir = './features';
-param_dir = './params';
+% Add paths, set paths
+uiwait(msgbox(['This program automatically segments a liver into '...
+    'viable tumor, necrosis, vasculature and parenchyma. '...
+    'It requires registered pre-contrast and contrast enhanced abdominal '...
+    'MRIs (in nifti format) along with the whole liver mask (in .ics/'...
+    '.ids format). It outputs binary masks of the 4 classes (also in '...
+    '.ics/.ids format). Only ICS version 1 is supported. '...
+    'The program asks you to select a patient folder to look for the '...
+    'MRIs/masks in. If it cannot find a file automatically, it will '...
+    'prompt you for it.'], 'qEASLy utility', 'modal'));
 
+addpath(genpath('utils'));
+addpath(genpath('scripts'));
+addpath(genpath('additional'));
+train_dir = 'raw_imgs/';
+train_data_dir = 'data';
+feature_dir = 'features';
+param_dir = 'params';
+
+% Collect images and whole liver masks
 patients = dir(train_dir);
 patients = {patients.name};
-% dir_patients = {dir_patients(4:58).name};
 data = acquire_data(patients(3:end), train_dir);
 
 save([train_data_dir,'/data.mat'],'data','-v7.3');
@@ -20,9 +30,9 @@ end
 
 [train,train_indices,test_indices] = compute_features([train_data_dir,'/data.mat'], train_data_dir);
 
-save('./params/train.mat','train','-v7.3');
-save('./params/train_indices.mat','train_indices');
-save('./params/test_indices.mat','test_indices');
+save('params/train.mat','train','-v7.3');
+save('params/train_indices.mat','train_indices');
+save('params/test_indices.mat','test_indices');
 
 intensities_bin;
 %delete(gcp('nocreate'));
