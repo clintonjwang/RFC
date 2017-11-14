@@ -12,23 +12,24 @@ uiwait(msgbox(['This program automatically segments a liver into '...
 addpath(genpath('utils'));
 addpath(genpath('scripts'));
 addpath(genpath('additional'));
-train_dir = 'raw_imgs/';
-train_data_dir = 'data';
+
+test_dir = 'raw_imgs/';
+test_data_dir = 'data';
 feature_dir = 'features';
 param_dir = 'params';
 
 % Collect images and whole liver masks
-patients = dir(train_dir);
+patients = dir(test_dir);
 patients = {patients.name};
-data = acquire_data(patients(3:end), train_dir);
+data = acquire_data(patients(3:end), test_dir);
 
-save([train_data_dir,'/data.mat'],'data','-v7.3');
+save([test_data_dir,'/data.mat'],'data','-v7.3');
 for i = 1:length(data)
     data_i = data{i};
-    save([train_data_dir,'/data_',num2str(i),'.mat'],'data_i')   
+    save([test_data_dir,'/data_',num2str(i),'.mat'],'data_i')   
 end
 
-[train,train_indices,test_indices] = compute_features([train_data_dir,'/data.mat'], train_data_dir);
+[train,train_indices,test_indices] = compute_features([test_data_dir,'/data.mat'], test_data_dir);
 
 save('params/train.mat','train','-v7.3');
 save('params/train_indices.mat','train_indices');
@@ -53,7 +54,7 @@ for idx = test_indices
     colorbar;
     
 %     Display ground truth image
-    data = load_nii([train_dir, '/', f.patID, '/nii_files/20s_isotropic.nii.gz']);
+    data = load_nii([test_dir, '/', f.patID, '/nii_files/20s_isotropic.nii.gz']);
     img = double(flip_image(data.img));
     image(img(:,:,round(f.sz(3)*2/3)));
     

@@ -1,10 +1,11 @@
-function [] = tissue_classification()
+function tissue_classification()
 
 dir_main = '.';
-dir_scratch60 = './features';
-dir_feat = './features';
+dir_scratch60 = 'features';
+dir_feat = 'features';
+
 %load relevant global variables 
-%load('data_light.mat'); %load relevant global variables 
+%load('data_light.mat');
 load('./data/data.mat');
 load('./params/train_indices.mat'); %holds subset of training patients for each round of cv
 load('./params/test_indices.mat'); %holds subset of training patients for each round of cv
@@ -13,155 +14,150 @@ load('./params/train.mat'); %holds subset of training patients for each round of
 
 %initialize global variables 
 ntrees=800; %trees in each random forest 
-RAC=3; %number of iterations of classification 
-sl=8; %structured context patch size 
-sl_spherical=5; %spherical context patch size 
-.........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+RAC=3; %number of iterations of classification
+sl=8; %structured context patch size
+sl_spherical=5; %spherical context patch size
+% .........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
 num_bins=5; %number of histogram bins for spherical histogram context features 
-sa=6; %number of auto-context features to sample per dimension 
-num_models = length(train.train_labels); %number of folds of cv 
+sa=6; %number of auto-context features to sample per dimension
+% num_cv_iterations = length(train.train_labels); %number of folds of cv 
 num_patients = length(data); %total number of patients 
 min_leaf_size=50; %random forest parameter: mininum leaf size 
-op = statset('UseParallel',1); %random forest parameter: train trees in parallel 
+op = statset('UseParallel',4); %random forest parameter: train trees in parallel 
 parpool(4); %number of cores to distribute processing over
 num_classes=4; %number of tissue classes 
 M = generate_spherical_masks1(sl_spherical); %generate spherical masks 
 
 %compute number of auto-context features...
-num_context_features=(sa^3) * (num_classes - 1); %structured context features
+num_context_features = (sa^3) * (num_classes - 1); %structured context features
 num_context_features = num_context_features + ((num_classes-1)*num_bins*length(M)); %plus spherical context features 
 
-disp('Beginning cross-validation...')
+cv_iteration = 1;
 
-%loop through cross-validation
-%for model=1:num_models
-for model =6
-    %loop through rounds of auto-context
-    for r=1:RAC
-    %for r=4
-        
-        disp(['Current round of auto-context...',num2str(r)]);
-        
-        %clear trees from previous round of label-context
-        clear C
-        %calculate number of predictors (depending on r)
-        load([dir_feat,'/features_1.mat']);
-        if(r==1)
-            num_predictors=f.num_intensity_features;
-        else
-            num_predictors=f.num_intensity_features+num_context_features;
-        end
-        clear f
-        
-        %number of training data points 
-        num_data_points = size(train.data{model},1);
-        
-        %train random forest
-        for t=1:ntrees
-            %bagging training data 
-            bag = randi(num_data_points,[1,num_data_points]);
-            if(r==1)
-                d=train.data{model}(bag,:);
-            else
-                d=train_data_ac(bag,:);
-            end
-            l=train.train_labels{model}(bag,:);
-            
-            C{t} = compact(fitctree(d,l,'MinLeafSize',min_leaf_size,...
-                'NumVariablesToSample',sqrt(num_predictors),...
-                'SplitCriterion','deviance','Surrogate','on'));
-        end
-        % TODO: here to save RF 
-        clear train_data_ac;
-        
-        %compute label probability maps for each tissue class and patient 
-        parfor td=1:num_patients
-        %for td=1:num_patients
-            
-            %load corresponding patient 
-            f=load([dir_feat,'/features_',num2str(td),'.mat']);
-            f=f.f;
-            
-            disp(['Computing classification for patient...',num2str(td)]);
-            
-            %read in appearance feature binary file for patient 
-            fileID = fopen([dir_scratch60, '/intensities_',num2str(td),'.bin'],'r');
-            intensities = fread(fileID,[numel(f.labels),...
-                f.num_intensity_features],'double');
-            fclose(fileID);
-            
-            %variable holding tissue probability estimates 
-            classification{td}=zeros(numel(f.labels),num_classes);
-            
-            tic
-            %if first round of classification: appearance features only 
-            if(r==1)
-                for t=1:ntrees
-                    [~,scores] = predict(C{t},intensities);
-                    classification{td} = classification{td} + scores;
-                end
-                %TODO: classifier funciton given saved RF
-            %for subsequent rounds of classification, incorporate auto-context 
-            %features 
-            else
-                %read in binary file holding auto-context features for
-                %patient
-                fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'r');
-                auto_context_features = fread(fileID,[numel(f.labels),...
-                    num_context_features],'double');
-                fclose(fileID);
-                for t=1:ntrees
-                    [~,scores] = predict(C{t},[intensities,auto_context_features]);
-                    classification{td} = classification{td} + scores;
-                end
-            end
-            classification{td}=classification{td}./ntrees;
-            toc
-            
-            %if patient is a "test patient" for this round of
-            %cross-validation, then compute accuracy measures of the 
-            %classification 
-            if(ismember(td,test_indices{model}))
-                
-                f.classification{r}=classification{td};
-                
-                if(r==1)
-                    f.AUC=[];
-                    f.sensitivity = [];
-                    f.specificity = [];
-                    f.precision = [];
-                    f.accuracy = [];
-                    f.DSC = [];
-                end
-                
-                [AUC,sensitivity,specificity,precision,accuracy,DSC] = ...
-                    compute_effectivness(f.classification{r},f.labels);
-                f.AUC(:,r) = AUC;
-                f.sensitivity(:,r) = sensitivity;
-                f.specificity(:,r) = specificity;
-                f.precision(:,r) = precision;
-                f.accuracy(:,r) = accuracy;
-                f.DSC(:,r) = DSC;
-                r
-                save_dummy(f,td,dir_main);
-                
-            end
-            
-        end
-        
-        %clear the previously trained random forest 
-        clear RF
-        
-        %compute the auto-context features, UNLESS it is the final
-        %iteration of classification 
-        if(r~=RAC)
-            train_data_ac = extract_autocontext_features(...
-                classification,data,locations,sl,sa,train.data{model},...
-                train.train_patients{model},train.train_locs{model},train_indices{model},...
-                num_context_features,sl_spherical,num_bins,dir_main,dir_scratch60);
-        end
-        
+%loop through rounds of auto-context
+for r=1:RAC
+    disp(['Current round of auto-context...',num2str(r)]);
+
+    %clear trees from previous round of label-context
+    clear C
+    
+    %calculate number of predictors (depending on r)
+    load([dir_feat,'/features_1.mat']);
+    if(r==1)
+        num_predictors=f.num_intensity_features;
+    else
+        num_predictors=f.num_intensity_features+num_context_features;
     end
+    clear f
+
+    %number of training data points 
+    num_data_points = size(train.data{cv_iteration},1);
+
+    %train random forest
+    for t=1:ntrees
+        %bagging training data 
+        bag = randi(num_data_points,[1,num_data_points]);
+        if(r==1)
+            d=train.data{cv_iteration}(bag,:);
+        else
+            d=train_data_ac(bag,:);
+        end
+        l=train.train_labels{cv_iteration}(bag,:);
+
+        C{t} = compact(fitctree(d,l,'MinLeafSize',min_leaf_size,...
+            'NumVariablesToSample',sqrt(num_predictors),...
+            'SplitCriterion','deviance','Surrogate','on'));
+    end
+    % TODO: here to save RF 
+    clear train_data_ac;
+
+    %compute label probability maps for each tissue class and patient 
+    parfor td=1:num_patients
+    %for td=1:num_patients
+
+        %load corresponding patient 
+        f=load([dir_feat,'/features_',num2str(td),'.mat']);
+        f=f.f;
+
+        disp(['Computing classification for patient...',num2str(td)]);
+
+        %read in appearance feature binary file for patient 
+        fileID = fopen([dir_scratch60, '/intensities_',num2str(td),'.bin'],'r');
+        intensities = fread(fileID,[numel(f.labels),...
+            f.num_intensity_features],'double');
+        fclose(fileID);
+
+        %variable holding tissue probability estimates 
+        classification{td}=zeros(numel(f.labels),num_classes);
+
+        tic
+        %if first round of classification: appearance features only 
+        if(r==1)
+            for t=1:ntrees
+                [~,scores] = predict(C{t},intensities);
+                classification{td} = classification{td} + scores;
+            end
+            %TODO: classifier funciton given saved RF
+        %for subsequent rounds of classification, incorporate auto-context 
+        %features 
+        else
+            %read in binary file holding auto-context features for
+            %patient
+            fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'r');
+            auto_context_features = fread(fileID,[numel(f.labels),...
+                num_context_features],'double');
+            fclose(fileID);
+            for t=1:ntrees
+                [~,scores] = predict(C{t},[intensities,auto_context_features]);
+                classification{td} = classification{td} + scores;
+            end
+        end
+        classification{td}=classification{td}./ntrees;
+        toc
+
+        %if patient is a "test patient" for this round of
+        %cross-validation, then compute accuracy measures of the 
+        %classification 
+        if(ismember(td,test_indices{cv_iteration}))
+
+            f.classification{r}=classification{td};
+
+            if(r==1)
+                f.AUC=[];
+                f.sensitivity = [];
+                f.specificity = [];
+                f.precision = [];
+                f.accuracy = [];
+                f.DSC = [];
+            end
+
+            [AUC,sensitivity,specificity,precision,accuracy,DSC] = ...
+                compute_effectivness(f.classification{r},f.labels);
+            f.AUC(:,r) = AUC;
+            f.sensitivity(:,r) = sensitivity;
+            f.specificity(:,r) = specificity;
+            f.precision(:,r) = precision;
+            f.accuracy(:,r) = accuracy;
+            f.DSC(:,r) = DSC;
+            r
+            save_dummy(f,td,dir_main);
+
+        end
+
+    end
+
+    %clear the previously trained random forest 
+    clear RF
+
+    %compute the auto-context features, UNLESS it is the final
+    %iteration of classification 
+    if(r~=RAC)
+        train_data_ac = extract_autocontext_features(...
+            classification,data,locations,sl,sa,train.data{cv_iteration},...
+            train.train_patients{cv_iteration},train.train_locs{cv_iteration},train_indices{cv_iteration},...
+            num_context_features,sl_spherical,num_bins,dir_main,dir_scratch60);
+    end
+
 end
 
 return

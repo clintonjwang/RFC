@@ -2,7 +2,7 @@ function make_isotropic_niis( path, R, train_bool )
 %MAKE_ISOTROPIC_NIIS Summary of this function goes here
 %   Detailed explanation goes here
 
-    %reslice 20s image to be isotropic 
+    %reslice 20s image to be isotropic
     reslice_nii([path,'/nii_files/20s.nii.gz'],...
         [path,'/nii_files/20s_isotropic.nii.gz'],...
         [R,R,R]);
