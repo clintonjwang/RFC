@@ -1,8 +1,5 @@
 function [train,train_indices,test_indices] = ...
-    compute_features(load_data_dir,...
-    load_data_pats)
-
-load(load_data_dir); 
+    compute_features(data, data_dir)
 
 num_patients = length(data);
 
@@ -24,7 +21,7 @@ tic
 pr=normalize_data(data,features); 
 toc
 
-data_1 = load([load_data_pats,'/data_',num2str(1),'.mat']);
+data_1 = data{1};
 data_1 = data_1.data_i;
 
 num_intensity_maps = length(data_1.p_im);
@@ -40,7 +37,7 @@ parfor i=1:length(data)
     
     disp(['Current patient... ',num2str(i)]); 
     
-    data_i = load([load_data_pats,'/data_',num2str(i),'.mat']);
+    data_i = load([data_dir,'/data_',num2str(i),'.mat']);
     data_i = data_i.data_i; 
     
     features{i}.sz = size(data_i.tight_liver_mask); 
@@ -266,40 +263,6 @@ end
 return
 end
 
-% function: generate_feature_array %
-function features = generate_feature_array(data,num_patients)
-
-disp('Generating feature struct...');
-for i=1:num_patients
-    disp(['Patient... ',num2str(i)]);
-    features{i} = struct;
-    features{i}.patID = data{i}.patID;
-    
-    features{i}.locations = find(data{i}.tight_liver_mask);
-    features{i}.labels=zeros(length(features{i}.locations),1);
-    
-    for c=1:length(features{i}.locations)
-        if(data{i}.necrosis_mask(features{i}.locations(c))==1)
-            features{i}.labels(c)=3;
-        elseif(data{i}.tumor_mask(features{i}.locations(c))==1)
-            features{i}.labels(c)=1;
-        elseif(data{i}.vessel_mask(features{i}.locations(c))==1)
-            features{i}.labels(c)=2;
-        end
-    end
-end
-
-%{
-disp('Generating feature struct...');
-parfor i=1:num_patients
-    disp(['Patient... ',num2str(i)]);
-    features{i} = struct;
-    features{i}.patID = data{i}.patID;
-    features{i}.locations = find(data{i}.tight_liver_mask);
-end
-%}
-return
-end
 
 function temp = compute_surface_distance(data_i,locations)
 

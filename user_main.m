@@ -1,4 +1,14 @@
+% Treilhard J. et al. (2017) Liver Tissue Classification in Patients with
+% Hepatocellular Carcinoma by Fusing Structured and Rotationally Invariant
+% Context Representation. In: Descoteaux M., Maier-Hein L., Franz A.,
+% Jannin P., Collins D., Duchesne S. (eds) Medical Image Computing and
+% Computer-Assisted Intervention ? MICCAI 2017. MICCAI 2017. Lecture Notes
+% in Computer Science, vol 10435. Springer, Cham
+% DOI https://doi.org/10.1007/978-3-319-66179-7_10
+
 % Add paths, set paths
+addpath(genpath('subroutines'));
+
 uiwait(msgbox(['This program automatically segments a liver into '...
     'viable tumor, necrosis, vasculature and parenchyma. '...
     'It requires registered pre-contrast and contrast enhanced abdominal '...
@@ -7,37 +17,29 @@ uiwait(msgbox(['This program automatically segments a liver into '...
     '.ics/.ids format). Only ICS version 1 is supported. '...
     'The program asks you to select a patient folder to look for the '...
     'MRIs/masks in. If it cannot find a file automatically, it will '...
-    'prompt you for it.'], 'qEASLy utility', 'modal'));
+    'prompt you for it.'], 'Random Forest Cascade utility', 'modal'));
+
+test_dir = uigetdir('', 'Select the folder containing the patient to segment.');
+feature_dir = 'features';
+param_dir = 'params';
+train_bool = false;
+save_files = false;
+
+if test_dir == 0
+    return
+end
 
 addpath(genpath('utils'));
 addpath(genpath('scripts'));
 addpath(genpath('additional'));
 
-test_dir = 'raw_imgs/';
-test_data_dir = 'data';
-feature_dir = 'features';
-param_dir = 'params';
-
 % Collect images and whole liver masks
-patients = dir(test_dir);
-patients = {patients.name};
-data = acquire_data(patients(3:end), test_dir);
-
-save([test_data_dir,'/data.mat'],'data','-v7.3');
-for i = 1:length(data)
-    data_i = data{i};
-    save([test_data_dir,'/data_',num2str(i),'.mat'],'data_i')   
-end
-
-[train,train_indices,test_indices] = compute_features([test_data_dir,'/data.mat'], test_data_dir);
-
-save('params/train.mat','train','-v7.3');
-save('params/train_indices.mat','train_indices');
-save('params/test_indices.mat','test_indices');
+data = acquire_data_single_pat(test_dir, train_bool);
+features = compute_features_single([test_dir,'/data.mat'], test_dir, train_bool);
 
 intensities_bin;
 %delete(gcp('nocreate'));
-tissue_classification;
+tissue_classification(train_bool);
 
 test_indices = test_indices.test_indices{6};
 for idx = test_indices
@@ -54,9 +56,9 @@ for idx = test_indices
     colorbar;
     
 %     Display ground truth image
-    data = load_nii([test_dir, '/', f.patID, '/nii_files/20s_isotropic.nii.gz']);
-    img = double(flip_image(data.img));
-    image(img(:,:,round(f.sz(3)*2/3)));
+%     data = load_nii([test_dir, '/', f.patID, '/nii_files/20s_isotropic.nii.gz']);
+%     img = double(flip_image(data.img));
+%     image(img(:,:,round(f.sz(3)*2/3)));
     
 %     load([train_data_dir,'/data_',num2str(idx),'.mat']);
 end
