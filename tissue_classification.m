@@ -1,4 +1,7 @@
 function tissue_classification(train_mode)
+%TISSUE_CLASSIFICATION Multiple
+%   Detailed explanation goes here
+
 dir_main = '.';
 dir_scratch60 = 'features';
 dir_feat = 'features';

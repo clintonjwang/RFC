@@ -1,9 +1,21 @@
 function features = compute_features_single(data)
-num_patients = length(data);
-
 tic
 disp('Generating feature cell array...');
-features = generate_feature_array(data,num_patients);
+features = struct;
+features.patID = data.patID;
+features.locations = find(data.tight_liver_mask);
+features.labels=zeros(length(features.locations),1);
+
+for c=1:length(features.locations)
+    if(data.necrosis_mask(features.locations(c))==1)
+        features.labels(c)=3;
+    elseif(data.tumor_mask(features.locations(c))==1)
+        features.labels(c)=1;
+    elseif(data.vessel_mask(features.locations(c))==1)
+        features.labels(c)=2;
+    end
+end
+features = generate_single_feature_array(data,1);
 disp('Normalizing data...'); 
 pr = normalize_data(data,features); 
 toc
@@ -15,14 +27,6 @@ num_grad_maps = length(data.grad);
 num_sf_maps = length(data.sf);
 num_mode_maps = length(data.mode);
 num_haralick = 3;
-
-clear data_1
-
-% parfor i=1:length(data)
-
-% disp(['Current patient... ',num2str(i)]); 
-
-% data_i = load([load_data_pats,'/data_',num2str(i),'.mat']);
 
 features.sz = size(data.tight_liver_mask); 
 
@@ -139,18 +143,164 @@ save_dummy(features,i);
 
 features=features.labels;
 
-
-
-
-disp('Extracting training data');  
-tic
-for model=1:length(train_indices)
-    [features.train_labels{model},features.train_patients{model},features.train_locs{model}] = ...
-        extract_training_data(features,train_indices{model});
+return
 end
 
-features = generate_training_data(features,features);
-toc
+function [] =save_dummy(f,i)
+
+save_dest='./features';
+save([save_dest,'/features_',num2str(i),'.mat'],'f','-v7.3');
+
+return 
+end
+
+function features_i = append_context_features(features_i,data_i,pr)
+
+maps{1}=data_i.mode{1}; 
+maps{2}=data_i.mode{2};
+maps{3}=data_i.mode{3};
+maps{4}=data_i.mode{4};
+
+sl=4;
+
+features_i.intensities = [features_i.intensities,...
+    compute_patches(maps,features_i,sl,data_i)];
+
+return 
+end
+
+function temp = compute_patches(maps,features_i,sl,data_i)
+[ii,jj,kk] = ind2sub(features_i.sz,features_i.locations);
+num_maps = length(maps);
+N=4;
+
+for c=1:length(maps)
+    patches{c}=zeros(length(ii),N^3); 
+end
+
+for d=1:length(ii)
+    
+    x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,features_i.sz(1)),N));
+    y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,features_i.sz(2)),N));
+    z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,features_i.sz(3)),N));
+    sample_locs = combvec(x,y,z);
+    
+    for n=1:(N^3)
+        if(data_i.tight_liver_mask(sample_locs(1,n),sample_locs(2,n),...
+                sample_locs(3,n))==0)
+            sample_locs(:,n)=[ii(d);jj(d);kk(d)];
+        end
+    end
+    
+    inds = sub2ind(features_i.sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
+
+    for c=1:length(maps)
+        patches{c}(d,:) = maps{c}(inds); 
+    end
+    
+end
+
+temp=[];
+for c=1:num_maps
+   temp=[temp,patches{c}];  
+end
 
 return
 end
+
+% function: generate_training_data %
+function train = generate_training_data(train,features)
+
+load_dir='./features';
+num_models = length(train.train_labels); 
+
+load([load_dir,'/features_',num2str(1),'.mat']);
+nf = size(f.intensities,2);
+
+for model=1:num_models
+    num_train_points = length(train.train_patients{model});
+    
+    train.data{model}=zeros(num_train_points,nf);
+    
+    for p=1:length(features)
+        loc_p = find(train.train_patients{model}==p);
+        if(~isempty(loc_p))
+            load([load_dir,'/features_',num2str(p),'.mat']);
+            for lp=loc_p'
+                ind = train.train_locs{model}(lp);
+                train.data{model}(lp,:) = f.intensities(ind,:);
+            end
+        end
+    end
+end
+
+return
+end
+
+
+function temp = compute_surface_distance(data_i,locations)
+
+D=bwdist(1-data_i.tight_liver_mask);
+
+temp=zeros(length(locations),1);
+for j=1:length(locations)
+    temp(j)=D(locations(j));
+end
+
+temp = reshape(temp,[numel(temp),1]); 
+
+return
+end
+
+%{
+function temp = compute_patches_spherical_distributions(...
+    maps,features_i,sl,data_i,pr)
+
+M = generate_spherical_masks(sl);
+num_spheres=length(M);
+[ii,jj,kk] = ind2sub(features_i.sz,features_i.locations);
+num_maps = length(maps);
+N=(2*sl)+1;
+num_bins=25; 
+
+for c=1:length(maps)
+    edges{c} = [-Inf,linspace(pr{c}(1),pr{c}(2),num_bins-1),+Inf];
+end
+
+for c=1:length(maps)
+    patches{c}=zeros(length(ii),num_bins*num_spheres); 
+end
+
+for d=1:length(ii)
+    
+    x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,features_i.sz(1)),N));
+    y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,features_i.sz(2)),N));
+    z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,features_i.sz(3)),N));
+    sample_locs = combvec(x,y,z);
+    
+    for n=1:(N^3)
+        if(data_i.tight_liver_mask(sample_locs(1,n),sample_locs(2,n),...
+                sample_locs(3,n))==0)
+            sample_locs(:,n)=[ii(d);jj(d);kk(d)];
+        end
+    end
+    
+    inds = sub2ind(features_i.sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
+    
+    for c=1:length(maps)
+        for s=1:num_spheres
+            patches{c}(d,((s-1)*num_bins)+1:s*num_bins) = ...
+                histcounts(maps{c}(inds(M{s})),edges{c});
+        end
+    end
+    
+end
+
+temp=[];
+for c=1:num_maps
+   temp=[temp,patches{c}];  
+end
+
+return
+end
+%}
