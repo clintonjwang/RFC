@@ -1,5 +1,5 @@
 %compute features for classification 
-function pr = normalize_data(data,features)
+function [data, pr] = normalize_data(data,features)
 
 %parameters for Frangi vessel filter computation 
 Options1.FrangiScaleRange=[1,10];
@@ -56,38 +56,31 @@ parfor i=1:length(data)
     data{i}.t2 = data{i}.t2 - m;
     data{i}.t2 = data{i}.t2 / s; 
     
-    disp('Computing gradient and std filter maps...'); 
-    tic
+    disp('Computing gradient and std filter maps...'); %fast (<1s)
     for j=1:length(data{i}.p_im)
         data{i}.grad{j} = compute_gradient_image(data{i}.p_im{j});
         data{i}.sf{j} = stdfilt(data{i}.p_im{j});
     end
-    toc
     
-    disp('Computing Frangi features...'); 
+    disp('Computing Frangi features...'); %fast (<1 min)
     tic
     data{i}.frangi{1} = FrangiFilter3D(data{i}.p_im{3},Options1);
     data{i}.frangi{2} = FrangiFilter3D(data{i}.p_im{2},Options2);
     data{i}.frangi{3} = FrangiFilter3D(data{i}.p_im{1},Options1);
-    toc
     
     if(isfield(data{i},'pre'))
         data{i} = rmfield(data{i},'pre');
     end
-    
     if(isfield(data{i},'art'))
         data{i} = rmfield(data{i},'art');
     end
-    
     if(isfield(data{i},'pv'))
         data{i} = rmfield(data{i},'pv');
     end
-    
-     if(isfield(data{i},'bf'))
+    if(isfield(data{i},'bf'))
         data{i} = rmfield(data{i},'bf');
     end
     toc
-    
 end
 
 for j=1:length(data{1}.p_im)
@@ -106,7 +99,7 @@ for j=1:length(data{1}.p_im)
 end
 clear temp
 
-disp('Computing texture features...'); 
+disp('Computing texture features...');  % slow
 parfor i=1:length(data)
     i
     tic
@@ -133,7 +126,7 @@ end
 clear maps
 
 %place to save data files after processing 
-save_dir='./data';
+save_dir='.';
 
 for i=1:length(data)
     data_i = data{i};

@@ -1,25 +1,4 @@
-function features = compute_features_single(data)
-tic
-disp('Generating feature cell array...');
-features = struct;
-features.patID = data.patID;
-features.locations = find(data.tight_liver_mask);
-features.labels=zeros(length(features.locations),1);
-
-for c=1:length(features.locations)
-    if(data.necrosis_mask(features.locations(c))==1)
-        features.labels(c)=3;
-    elseif(data.tumor_mask(features.locations(c))==1)
-        features.labels(c)=1;
-    elseif(data.vessel_mask(features.locations(c))==1)
-        features.labels(c)=2;
-    end
-end
-features = generate_single_feature_array(data,1);
-disp('Normalizing data...'); 
-pr = normalize_data(data,features); 
-toc
-
+function features = compute_features_single(data, pr)
 data = data.data_i;
 num_intensity_maps = length(data.p_im);
 num_frangi_maps = length(data.frangi); 
@@ -203,35 +182,6 @@ end
 temp=[];
 for c=1:num_maps
    temp=[temp,patches{c}];  
-end
-
-return
-end
-
-% function: generate_training_data %
-function train = generate_training_data(train,features)
-
-load_dir='./features';
-num_models = length(train.train_labels); 
-
-load([load_dir,'/features_',num2str(1),'.mat']);
-nf = size(f.intensities,2);
-
-for model=1:num_models
-    num_train_points = length(train.train_patients{model});
-    
-    train.data{model}=zeros(num_train_points,nf);
-    
-    for p=1:length(features)
-        loc_p = find(train.train_patients{model}==p);
-        if(~isempty(loc_p))
-            load([load_dir,'/features_',num2str(p),'.mat']);
-            for lp=loc_p'
-                ind = train.train_locs{model}(lp);
-                train.data{model}(lp,:) = f.intensities(ind,:);
-            end
-        end
-    end
 end
 
 return
