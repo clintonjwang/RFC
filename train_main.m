@@ -27,42 +27,32 @@ else
     end
 end
 
-working_dir = 'working_dir';
-param_dir = 'params';
 train_bool = true;
+model_dir = 'models';
+working_dir = 'working_dir';
+[~, ~, ~] = mkdir(model_dir);
+[~, ~, ~] = mkdir(working_dir);
+
+patients = dir(train_dir);
+filenames = {patients.name};
+patients = filenames([patients.isdir]);
+patients = patients(3:end);
+num_patients = length(patients);
 
 % Collect images and whole liver masks
-patients = dir(train_dir);
-patients = {patients.name};
-patients = patients(3:end);
-save('params/patients.mat','patients');
+acquire_data(patients, train_dir, working_dir, train_bool);
 
-data = acquire_data(patients, train_dir, train_bool);
-save([working_dir,'/data.mat'],'data','-v7.3');
-% for i = 1:length(data)
-%     data_i = data{i};
-%     save([train_dir,'/data_',num2str(i),'.mat'],'data_i')
-% end
-% data = load([feature_dir,'/data.mat']); 
+% Compute features
+compute_features(patients, working_dir);
 
-num_patients = length(data);
-[train, features] = compute_features(data, train_dir, train_indices);
-save('params/train.mat','train','-v7.3');
+% Generate training data
+generate_training_data(patients, working_dir);
 
-train_size = length(train_indices);
-for i = 1:train_size
-    intensities_bin(f, i);
-    
-    fileID = fopen([feat_dir,'/intensities_',num2str(i),'.bin'],'w');
-    fwrite(fileID,intensities,'double');
-    fclose(fileID);
-    save([feat_dir,'/features_',num2str(i),'.mat'],'f','-v7.3');
-    
-    locations{i} = f{i}.locations;
-end
-save('./params/locations.mat','locations','-v7.3');
+% Collect intensities (?)
+intensities_bin(patients, working_dir);
 
-f = tissue_classification(train_bool);
+% Train random forest model
+tissue_classification(patients, model_dir, working_dir, working_dir, train_bool);
 
 % for idx = test_indices
 %     disp(idx);

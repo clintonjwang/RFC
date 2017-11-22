@@ -1,5 +1,8 @@
-%compute features for classification 
-function [data, pr] = normalize_data(data,features)
+function normalize_data(data, working_dir)
+%normalize_data(data,features) computes features for classification 
+% data should contain all patients
+
+disp('Normalizing data...');
 
 %parameters for Frangi vessel filter computation 
 Options1.FrangiScaleRange=[1,10];
@@ -12,8 +15,8 @@ Options2.FrangiScaleRatio=1;
 Options2.verbose=0;
 Options2.BlackWhite=1;
 
-%loop through patients 
-parfor i=1:length(data)
+%loop through patients
+for i=1:length(data) %parfor
     tic
     
     %bias field correction 
@@ -99,35 +102,23 @@ end
 clear temp
 
 disp('Computing texture features...');  % slow
-parfor i=1:length(data)
-    i
+for i=1:length(data) %parfor
     tic
-    data{i}.glcm = compute_glcm(data{i}.p_im,features{i}.locations,range); 
+    f = load([working_dir,'/features_',num2str(i),'.mat']);
+    f = f.f;
+    data{i}.glcm = compute_glcm(data{i}.p_im,f.locations,range); 
     toc
+    
+    data_i = data{i};
+    save([working_dir,'/data_',num2str(i),'.mat'], 'data_i');
 end
 
-%extract 1st and 99th percentile of data
-for i=1:3
-    maps{i}=[]; 
-end
-
-for i=1:length(data) 
-    maps{1}=[maps{1};data{i}.p_im{1}(:)];
-    maps{2}=[maps{2};data{i}.p_im{2}(:)];
-    maps{3}=[maps{3};data{i}.p_im{3}(:)];
-end
-
-for i=1:3
-    pr{i} = prctile(maps{i},[1,99]);
-    minmax{i}=[min(maps{i}),max(maps{i})];
-end
-
-clear maps
 return
 end
 
-%gradient image 
+
 function gim = compute_gradient_image(im) 
+%gradient image
 
 [FX,FY,FZ]=gradient(im); 
 gim = ((FX.^2)+(FY.^2)+(FZ.^2)).^0.5;
@@ -135,8 +126,8 @@ gim = ((FX.^2)+(FY.^2)+(FZ.^2)).^0.5;
 return 
 end
 
-%haralick texture feature image 
 function glcm_maps = compute_glcm(maps,locations,range)
+%haralick texture feature image
 
 num_haralick=3; 
 sl=2;
@@ -164,30 +155,6 @@ for d=1:length(ii)
         glcm_maps{c,3}(ii(d),jj(d),kk(d)) = stats.Homogeneity;
     end
     
-end
-
-return
-end
-
-
-%smooth image
-function data_i = smooth_data(data_i)
-
-num_iter=3;
-delta_t=0.0682;
-kappa=30;
-option=1;
-
-m = mean(data_i.pv(data_i.tight_liver_mask==1));
-
-phases={'pre','art','pv','t2'};
-
-voxel_spacing = data_i.resolution;
-for j=1:length(phases)
-    m1 = mean(data_i.(phases{j})(data_i.tight_liver_mask==1));
-    data_i.(phases{j}) = data_i.(phases{j}) * (m/m1);
-    data_i.(phases{j})=(m1/m)*anisodiff3D(data_i.(phases{j}) * (m/m1),...
-        num_iter,delta_t,kappa,option,voxel_spacing);
 end
 
 return
