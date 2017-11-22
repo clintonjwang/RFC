@@ -1,4 +1,6 @@
-function features = compute_features_single(data, pr)
+function compute_features_single(data_path, pr, features)
+
+data = load(data_path);
 data = data.data_i;
 num_intensity_maps = length(data.p_im);
 num_frangi_maps = length(data.frangi); 
@@ -7,72 +9,53 @@ num_sf_maps = length(data.sf);
 num_mode_maps = length(data.mode);
 num_haralick = 3;
 
-features.sz = size(data.tight_liver_mask); 
+features.sz = size(data.tight_liver_mask);
 
-disp('Extracting voxel-wise intensities...'); 
 tic
+disp('Extracting voxel-wise intensities...'); %very fast
 features.intensities = zeros(length(features.locations),...
     num_intensity_maps);
-
 for j=1:num_intensity_maps
     features.intensities(:,j) = data.p_im{j}(features.locations); 
 end
-toc
 
-disp('Extracting mode-map intensities...'); 
-tic
+disp('Extracting mode-map intensities...'); %very fast
 features.mode_intensities = zeros(length(features.locations),...
     num_mode_maps);
-
 for j=1:num_mode_maps
     features.mode_intensities(:,j) = data.mode{j}(features.locations);
 end
-toc
 
-disp('Extracting Frangi intensities...'); 
-tic
+disp('Extracting Frangi intensities...');  %very fast
 features.frangi = zeros(length(features.locations),...
     num_frangi_maps);
-
 for j=1:num_frangi_maps
     features.frangi(:,j) = data.frangi{j}(features.locations); 
 end
-toc
 
-disp('Extracting t2 intensities...');
-tic
+disp('Extracting t2 intensities...'); %very fast
 features.t2 = zeros(length(features.locations),1);
 features.t2(:,1) = data.t2(features.locations);
-toc
 
-disp('Extracting surface distances...'); 
-tic
+disp('Extracting surface distances...'); %very fast
 features.intensities = [features.intensities,...
     compute_surface_distance(data,features.locations)];
-toc
 
-disp('Extracting gradient intensities...'); 
-tic
+disp('Extracting gradient intensities...');  %very fast
 features.gradient = zeros(length(features.locations),...
     num_grad_maps);
-
 for j=1:num_grad_maps
     features.gradient(:,j) = data.grad{j}(features.locations);
 end
-toc
 
-disp('Extracting std filter intensities...');
-tic
+disp('Extracting std filter intensities...'); %very fast
 features.sf = zeros(length(features.locations),...
     num_sf_maps);
-
 for j=1:num_sf_maps
     features.sf(:,j) = data.sf{j}(features.locations);
 end
-toc
 
-disp('Extracting Haralick feature intensities...');
-tic
+disp('Extracting Haralick feature intensities...'); %very fast
 features.haralick = zeros(length(features.locations),num_intensity_maps*...
     num_haralick);
 
@@ -84,7 +67,6 @@ for j1=1:num_intensity_maps
         ind=ind+1;
     end
 end
-toc
 
 features.intensities = [features.intensities,...
     features.mode_intensities];
@@ -109,6 +91,8 @@ features=rmfield(features,'frangi');
 features.intensities = [features.intensities,...
     features.t2];
 features=rmfield(features,'t2');
+toc
+
 
 disp('Appending contextual features');
 tic
@@ -118,7 +102,7 @@ toc
 features.auto_context_features=[]; 
 features.auto_context_features_boost=[]; 
 
-save_dummy(features,i);
+save_dummy(features,1);
 
 features=features.labels;
 
@@ -127,7 +111,7 @@ end
 
 function [] =save_dummy(f,i)
 
-save_dest='./features';
+save_dest='features';
 save([save_dest,'/features_',num2str(i),'.mat'],'f','-v7.3');
 
 return 

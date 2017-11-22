@@ -1,4 +1,4 @@
-function [f, intensities] = intensities_bin(f)
+function intensities_bin(f)
 % train_size = 20;
 feat_dir = 'features';
 % feat_dir = dir('./features');

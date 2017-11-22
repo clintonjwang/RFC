@@ -12,7 +12,7 @@ end
 normal_med = round(median(normal_temp));
 cancer_med = round(median(cancer_temp));
 vessel_med = round(median(vessel_temp)); 
-necrosis_med = 1000; 
+necrosis_med = 1000;
 
 normal_locs=[];
 cancer_locs=[]; 
@@ -25,7 +25,6 @@ vessel_patients=[];
 necrosis_patients=[];
 
 for train_indx=1:num_train_pats
-
     nl = find(features{train_indices(train_indx)}==0);
     cl = find(features{train_indices(train_indx)}==1);
     vl = find(features{train_indices(train_indx)}==2); 
@@ -34,15 +33,12 @@ for train_indx=1:num_train_pats
     if(length(nl)>normal_med)
         nl = nl(randsample(length(nl),normal_med));
     end
-    
     if(length(cl)>cancer_med)
         cl = cl(randsample(length(cl),cancer_med));
     end
-    
     if(length(vl)>vessel_med)
         vl = vl(randsample(length(vl),vessel_med));
     end
-    
     if(length(necl)>necrosis_med)
         necl = necl(randsample(length(necl),necrosis_med));
     end
@@ -56,11 +52,12 @@ for train_indx=1:num_train_pats
     cancer_patients = [cancer_patients;train_indices(train_indx)*ones(length(cl),1)];
     vessel_patients = [vessel_patients;train_indices(train_indx)*ones(length(vl),1)];
     necrosis_patients = [necrosis_patients;train_indices(train_indx)*ones(length(necl),1)];
-    
 end
 
-T_par=200000; 
-T_other=50000;
+% T_par=200000; 
+% T_other=50000;
+T_par=20000; 
+T_other=5000;
 
 p=randsample(length(normal_locs),T_par); 
 normal_locs=normal_locs(p); 

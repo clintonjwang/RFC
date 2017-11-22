@@ -14,7 +14,6 @@ Options2.BlackWhite=1;
 
 %loop through patients 
 parfor i=1:length(data)
-%for i=1:length(data)
     tic
     
     %bias field correction 
@@ -107,7 +106,7 @@ parfor i=1:length(data)
     toc
 end
 
-%extract 1st and 9th percentile of data
+%extract 1st and 99th percentile of data
 for i=1:3
     maps{i}=[]; 
 end
@@ -124,16 +123,6 @@ for i=1:3
 end
 
 clear maps
-
-%place to save data files after processing 
-save_dir='.';
-
-for i=1:length(data)
-    data_i = data{i};
-    save([save_dir,'/data_',num2str(i),'.mat'],'data_i','-v7.3'); 
-    data{i}=[];
-end
-
 return
 end
 
@@ -180,6 +169,7 @@ end
 return
 end
 
+
 %smooth image
 function data_i = smooth_data(data_i)
 
@@ -203,10 +193,9 @@ end
 return
 end
 
-%compute image where intensity corresponds from distance from image mode 
 
-
-function mode_map = compute_mode_map(map,mask) 
+%compute image where intensity corresponds to distance from image mode 
+function mode_map = compute_mode_map(map,mask)
 
 %set up histogram, find the mode 
 num_bins=200;

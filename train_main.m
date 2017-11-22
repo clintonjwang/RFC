@@ -27,15 +27,18 @@ else
     end
 end
 
-feature_dir = 'features';
+working_dir = 'working_dir';
 param_dir = 'params';
 train_bool = true;
 
 % Collect images and whole liver masks
 patients = dir(train_dir);
 patients = {patients.name};
-data = acquire_data(patients(3:end), train_dir, train_bool);
-save([feature_dir,'/data.mat'],'data','-v7.3');
+patients = patients(3:end);
+save('params/patients.mat','patients');
+
+data = acquire_data(patients, train_dir, train_bool);
+save([working_dir,'/data.mat'],'data','-v7.3');
 % for i = 1:length(data)
 %     data_i = data{i};
 %     save([train_dir,'/data_',num2str(i),'.mat'],'data_i')
@@ -43,21 +46,17 @@ save([feature_dir,'/data.mat'],'data','-v7.3');
 % data = load([feature_dir,'/data.mat']); 
 
 num_patients = length(data);
-train_indices = 1:num_patients;
-test_indices = [];
-train = compute_features(data, train_dir, train_indices);
+[train, features] = compute_features(data, train_dir, train_indices);
 save('params/train.mat','train','-v7.3');
-save('params/train_indices.mat','train_indices');
-save('params/test_indices.mat','test_indices');
 
 train_size = length(train_indices);
 for i = 1:train_size
-    [f{i}, intensities{i}] = intensities_bin(f, i);
+    intensities_bin(f, i);
     
     fileID = fopen([feat_dir,'/intensities_',num2str(i),'.bin'],'w');
     fwrite(fileID,intensities,'double');
     fclose(fileID);
-    save([feat_dir,'/features_',num2str(i),'.mat'],'f','-v7.3'); 
+    save([feat_dir,'/features_',num2str(i),'.mat'],'f','-v7.3');
     
     locations{i} = f{i}.locations;
 end
