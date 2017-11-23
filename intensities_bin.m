@@ -6,6 +6,8 @@ function intensities_bin(patients, working_dir)
 
 % load([feat_dir,'/features_',num2str(i),'.mat']);
 
+disp('Saving intensities as bin files...');
+
 for i = 1:length(patients) %parfor
     f = load([working_dir,'/features_',num2str(i),'.mat']);
     f = f.f;
@@ -19,9 +21,8 @@ for i = 1:length(patients) %parfor
     locations{i} = f.locations;
     f.num_intensity_features = size(f.intensities, 2); %301
     f.intensities = [];
-    save([working_dir,'/features_',num2str(i),'.mat'],'f','-v7.3');
+    save([working_dir,'/small_features_',num2str(i),'.mat'],'f','-v7.3');
 end
 save([working_dir,'/locations.mat'],'locations','-v7.3');
-
 
 return

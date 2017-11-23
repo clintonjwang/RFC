@@ -1,6 +1,6 @@
 function compute_features_single(i, working_dir)
 
-data = load([working_dir,'/data_',num2str(i),'.mat']);
+data = load([working_dir,'/norm_data_',num2str(i),'.mat']);
 data = data.data_i;
 num_intensity_maps = length(data.p_im);
 num_frangi_maps = length(data.frangi); 
@@ -9,12 +9,11 @@ num_sf_maps = length(data.sf);
 num_mode_maps = length(data.mode);
 num_haralick = 3;
 
-f = load([working_dir,'/features_',num2str(i),'.mat']);
+f = load([working_dir,'/init_features_',num2str(i),'.mat']);
 f = f.f;
 
 f.sz = size(data.tight_liver_mask);
 
-tic
 % disp('Extracting voxel-wise intensities...'); %very fast
 f.intensities = zeros(length(f.locations),...
     num_intensity_maps);
@@ -94,13 +93,10 @@ f=rmfield(f,'frangi');
 f.intensities = [f.intensities,...
     f.t2];
 f=rmfield(f,'t2');
-toc
 
 
 % disp('Appending contextual features'); %moderately fast
-tic
 f = append_context_features(f,data);
-toc
 
 f.auto_context_features=[]; 
 f.auto_context_features_boost=[]; 

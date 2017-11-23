@@ -1,0 +1,16 @@
+	
+ics_version	1.0 
+filename	C:\Users\Clinton\Documents\MATLAB\RFC\.\vasculature_mask.ids
+layout	parameters	4 
+layout	order	bits	x	y	z
+layout	sizes	8	320	260	88
+layout	coordinates	video
+layout	significant_bits	8
+representation	format	integer
+representation	sign	unsigned
+representation	SCIL_TYPE	g3d
+parameter	origin	0	0.000	0.000	0.000
+parameter	scale	1	1.313	1.313	3.000
+parameter	axisX	0	1.000	0.000	0.000
+parameter	axisY	0	0.000	1.000	0.000
+parameter	axisZ	0	0.000	0.000	1.000

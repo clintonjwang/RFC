@@ -1,5 +1,6 @@
 function [train_labels,train_patients,train_locs] = ...
     extract_training_data(features,train_indices)
+% Does not modify features
 
 num_train_pats = length(train_indices); 
 

@@ -1,6 +1,8 @@
 function normalize_data(data, working_dir)
 %normalize_data(data,features) computes features for classification 
 % data should contain all patients
+% data gains p_im, which captures pre, art, pv intensities and their diffs
+% data gains mode, grad, sf, frangi, and glcm (Haralick)
 
 disp('Normalizing data...');
 
@@ -58,14 +60,13 @@ for i=1:length(data) %parfor
     data{i}.t2 = data{i}.t2 - m;
     data{i}.t2 = data{i}.t2 / s; 
     
-    disp('Computing gradient and std filter maps...'); %fast (<1s)
+%     disp('Computing gradient and std filter maps...'); %very fast (<1s)
     for j=1:length(data{i}.p_im)
         data{i}.grad{j} = compute_gradient_image(data{i}.p_im{j});
         data{i}.sf{j} = stdfilt(data{i}.p_im{j});
     end
     
-    disp('Computing Frangi features...'); %fast (<1 min)
-    tic
+%     disp('Computing Frangi features...'); %fast (<1 min)
     data{i}.frangi{1} = FrangiFilter3D(data{i}.p_im{3},Options1);
     data{i}.frangi{2} = FrangiFilter3D(data{i}.p_im{2},Options2);
     data{i}.frangi{3} = FrangiFilter3D(data{i}.p_im{1},Options1);
@@ -82,7 +83,6 @@ for i=1:length(data) %parfor
     if(isfield(data{i},'bf'))
         data{i} = rmfield(data{i},'bf');
     end
-    toc
 end
 
 for j=1:length(data{1}.p_im)
@@ -101,16 +101,16 @@ for j=1:length(data{1}.p_im)
 end
 clear temp
 
-disp('Computing texture features...');  % slow
+disp('Computing Haralick texture features (slow)...');  % slow
 for i=1:length(data) %parfor
     tic
-    f = load([working_dir,'/features_',num2str(i),'.mat']);
+    f = load([working_dir,'/init_features_',num2str(i),'.mat']);
     f = f.f;
     data{i}.glcm = compute_glcm(data{i}.p_im,f.locations,range); 
     toc
     
     data_i = data{i};
-    save([working_dir,'/data_',num2str(i),'.mat'], 'data_i');
+    save([working_dir,'/norm_data_',num2str(i),'.mat'], 'data_i');
 end
 
 return

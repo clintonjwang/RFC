@@ -29,9 +29,11 @@ end
 
 train_bool = true;
 model_dir = 'models';
-working_dir = 'working_dir';
+working_dir = 'working';
+out_dir = 'output';
 [~, ~, ~] = mkdir(model_dir);
 [~, ~, ~] = mkdir(working_dir);
+[~, ~, ~] = mkdir(out_dir);
 
 patients = dir(train_dir);
 filenames = {patients.name};
@@ -42,17 +44,29 @@ num_patients = length(patients);
 % Collect images and whole liver masks
 acquire_data(patients, train_dir, working_dir, train_bool);
 
-% Compute features
+if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
+    % Initialize labels and locations
+    [data] = init_features(patients, working_dir);
+    
+    % Compute image features for the entire image
+    normalize_data(data, working_dir);
+end
+
+% Separate features based on label
 compute_features(patients, working_dir);
 
 % Generate training data
-generate_training_data(patients, working_dir);
+if exist([working_dir,'/train.mat'],'file') == 0
+    generate_training_data(patients, working_dir);
+end
 
-% Collect intensities (?)
-intensities_bin(patients, working_dir);
+% Save intensities in a separate bin file
+if exist([working_dir,'/intensities_1.bin'],'file') == 0    
+    intensities_bin(patients, working_dir);
+end
 
 % Train random forest model
-tissue_classification(patients, model_dir, working_dir, working_dir, train_bool);
+tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir);
 
 % for idx = test_indices
 %     disp(idx);
