@@ -53,7 +53,7 @@ if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
 end
 
 % Separate features based on label
-compute_features(patients, working_dir);
+% compute_features(patients, working_dir);
 features = compute_features_single([test_dir,'/data.mat'], test_dir, train_bool);
 
 % Save intensities in a separate bin file
