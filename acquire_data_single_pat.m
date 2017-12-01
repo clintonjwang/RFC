@@ -54,25 +54,27 @@ if exist([path,'/temp/whole_liver.nii'],'file') == 0
     make_isotropic_niis(path, R, train_bool);
 end
 
-data = load_niis(data, path, true);
+data = load_niis(data, path, train_bool);
 
 %get T1 image dimensions
 [N1,N2,N3] = size(data.art);
 
 %shrink the masks to proper size if necessary
-data = shrink_masks(data, N1, N2, N3);
+data = shrink_masks(data, N1, N2, N3, train_bool);
 
 %compute tightened liver mask
-r=4;  
+r=4;
 rs=r/data.resolution(1); 
 D=bwdist(1-data.liver_mask);
 data.tight_liver_mask = zeros(N1,N2,N3);
 data.tight_liver_mask(D>rs) = data.liver_mask(D>rs);
 
-data.necrosis_mask = data.necrosis_mask .* data.tight_liver_mask;
-data.tumor_mask = data.tumor_mask .* data.tight_liver_mask .*(1-data.necrosis_mask);
-data.vessel_mask = data.vessel_mask.*data.tight_liver_mask.*(1-data.tumor_mask).*(1-data.necrosis_mask);
-
+if train_bool
+    data.necrosis_mask = data.necrosis_mask .* data.tight_liver_mask;
+    data.tumor_mask = data.tumor_mask .* data.tight_liver_mask .*(1-data.necrosis_mask);
+    data.vessel_mask = data.vessel_mask.*data.tight_liver_mask.*(1-data.tumor_mask).*(1-data.necrosis_mask);
+end
+    
 %find edges of the liver and crop the images to this dimension
 [i,j,k] = ind2sub(size(data.liver_mask),find(data.liver_mask));
 i_min = min(i);
@@ -97,9 +99,13 @@ end
 %get contours for later visualization
 data.liver_contour = get_contour(data.liver_mask);
 data.tight_liver_contour = get_contour(data.tight_liver_mask);
-data.tumor_contour = get_contour(data.tumor_mask);
-data.vessel_contour = get_contour(data.vessel_mask);
-data.necrosis_contour = get_contour(data.necrosis_mask);
+if train_bool
+    data.tumor_contour = get_contour(data.tumor_mask);
+    data.vessel_contour = get_contour(data.vessel_mask);
+    data.necrosis_contour = get_contour(data.necrosis_mask);
+end
+
+% [~, ~, ~] = rmdir([path,'/temp'], 's');
 
 return
 
@@ -145,7 +151,7 @@ end
 
 return
 
-function data = shrink_masks(data, N1, N2, N3)
+function data = shrink_masks(data, N1, N2, N3, train_bool)
     
 temp = zeros(size(data.art)); 
 x_max=min(size(data.liver_mask,1),N1); 
@@ -154,26 +160,28 @@ z_max=min(size(data.liver_mask,3),N3);
 temp(1:x_max,1:y_max,1:z_max)=data.liver_mask(1:x_max,1:y_max,1:z_max);  
 data.liver_mask=temp; 
 
-temp = zeros(size(data.art)); 
-x_max=min(size(data.vessel_mask,1),N1); 
-y_max=min(size(data.vessel_mask,2),N2);
-z_max=min(size(data.vessel_mask,3),N3);
-temp(1:x_max,1:y_max,1:z_max)=data.vessel_mask(1:x_max,1:y_max,1:z_max);  
-data.vessel_mask=temp;
+if train_bool
+    temp = zeros(size(data.art)); 
+    x_max=min(size(data.vessel_mask,1),N1); 
+    y_max=min(size(data.vessel_mask,2),N2);
+    z_max=min(size(data.vessel_mask,3),N3);
+    temp(1:x_max,1:y_max,1:z_max)=data.vessel_mask(1:x_max,1:y_max,1:z_max);  
+    data.vessel_mask=temp;
 
-temp = zeros(size(data.art)); 
-x_max=min(size(data.necrosis_mask,1),N1); 
-y_max=min(size(data.necrosis_mask,2),N2);
-z_max=min(size(data.necrosis_mask,3),N3);
-temp(1:x_max,1:y_max,1:z_max)=data.necrosis_mask(1:x_max,1:y_max,1:z_max);  
-data.necrosis_mask=temp;
+    temp = zeros(size(data.art)); 
+    x_max=min(size(data.necrosis_mask,1),N1); 
+    y_max=min(size(data.necrosis_mask,2),N2);
+    z_max=min(size(data.necrosis_mask,3),N3);
+    temp(1:x_max,1:y_max,1:z_max)=data.necrosis_mask(1:x_max,1:y_max,1:z_max);  
+    data.necrosis_mask=temp;
 
-temp = zeros(size(data.art)); 
-x_max=min(size(data.tumor_mask,1),N1); 
-y_max=min(size(data.tumor_mask,2),N2);
-z_max=min(size(data.tumor_mask,3),N3);
-temp(1:x_max,1:y_max,1:z_max)=data.tumor_mask(1:x_max,1:y_max,1:z_max);  
-data.tumor_mask=temp;
+    temp = zeros(size(data.art)); 
+    x_max=min(size(data.tumor_mask,1),N1); 
+    y_max=min(size(data.tumor_mask,2),N2);
+    z_max=min(size(data.tumor_mask,3),N3);
+    temp(1:x_max,1:y_max,1:z_max)=data.tumor_mask(1:x_max,1:y_max,1:z_max);  
+    data.tumor_mask=temp;
+end
 
 return
 

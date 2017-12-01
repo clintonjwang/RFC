@@ -20,7 +20,7 @@ num_context_features = (sa^3) * (num_classes - 1)... %structured context feature
          + ((num_classes-1)*num_bins*length(M)); %plus spherical context features 
 
 for i=1:num_patients
-    data{i} = load([working_dir,'/data_',num2str(i),'.mat']);
+    data{i} = load([working_dir,'/norm_data_',num2str(i),'.mat']);
     data{i} = data{i}.data_i;
 end
     
@@ -66,6 +66,7 @@ for r=1:RAC
         
         save([model_dir,'/tree_',num2str(r),'.mat'],'C');
         clear train_data_ac;
+        toc
         
     else
 %         fileID = fopen([model_dir,'/tree_',num2str(r),'.mat'],'r');
@@ -73,7 +74,6 @@ for r=1:RAC
 %         fclose(fileID);
         load([model_dir,'/tree_',num2str(r),'.mat']);
     end
-    toc
     
     disp('Computing classification...');
     
@@ -83,9 +83,11 @@ for r=1:RAC
         %load corresponding patient
         f=load([working_dir,'/small_features_',num2str(td),'.mat']);
         f=f.f;
-
-        disp(['Computing classification for patient...',num2str(td)]);
-
+        
+        if train_bool
+            disp(['Computing classification for patient...',num2str(td)]);
+        end
+        
         %read in appearance feature binary file for patient 
         fileID = fopen([scratch_dir, '/intensities_',num2str(td),'.bin'],'r');
         intensities = fread(fileID,[numel(f.labels),...
@@ -152,38 +154,44 @@ for r=1:RAC
     
     %compute the auto-context features, unless it is the final iteration
     train_indices = 1:num_patients;
-    if r~=RAC
-        train_data_ac = extract_autocontext_features(...
-            classification,data,locations,sl,sa,train.data,...
-            train.train_patients,train.train_locs,...
-            num_context_features,sl_spherical,num_bins,scratch_dir);
-        
-    elseif ~train_bool
-        for td=1:num_patients %parfor
-            load([working_dir,'/small_features_',num2str(td),'.mat']);
-            
-            scores = classification{td};
-            pred_labels = (scores(:,2)>scores(:,1)) .* (scores(:,2)>scores(:,3)).* (scores(:,2)>scores(:,4)) + ...
-                 2 * (scores(:,3)>scores(:,1)) .* (scores(:,3)>scores(:,2)).* (scores(:,3)>scores(:,4)) + ...
-                 3 * (scores(:,4)>scores(:,1)) .* (scores(:,4)>scores(:,2)).* (scores(:,4)>scores(:,3));
-            pred_labels = pred_labels + 1;
-            
-            pred_img = zeros(f.sz);
-            for pix_idx = 1:length(f.locations)
-                pred_img(f.locations(pix_idx)) = pred_labels(pix_idx);
+    if train_bool
+        if r~=RAC
+            train_data_ac = extract_autocontext_features(...
+                classification,data,locations,sl,sa,train.data,...
+                train.train_patients,train.train_locs,...
+                num_context_features,sl_spherical,num_bins,scratch_dir);
+        end
+    else
+        if r~=RAC
+            extract_autocontext_features_test(...
+                classification,data,locations,sl,sa,...
+                sl_spherical,num_bins,scratch_dir);
+        else
+            for td=1:num_patients %parfor
+                load([working_dir,'/small_features_',num2str(td),'.mat']);
+
+                scores = classification{td};
+                pred_labels = (scores(:,2)>scores(:,1)) .* (scores(:,2)>scores(:,3)).* (scores(:,2)>scores(:,4)) + ...
+                     2 * (scores(:,3)>scores(:,1)) .* (scores(:,3)>scores(:,2)).* (scores(:,3)>scores(:,4)) + ...
+                     3 * (scores(:,4)>scores(:,1)) .* (scores(:,4)>scores(:,2)).* (scores(:,4)>scores(:,3));
+                pred_labels = pred_labels + 1;
+
+                pred_img = zeros(f.sz);
+                for pix_idx = 1:length(f.locations)
+                    pred_img(f.locations(pix_idx)) = pred_labels(pix_idx);
+                end
+                vasc_mask = pred_img == 2;
+                nec_mask = pred_img == 3;
+                viatumor_mask = pred_img == 4;
+                paren_mask = pred_img == 1;
+
+                [~,~,~]=mkdir(out_dir);
+    %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
+                write_ids_mask(vasc_mask, data_dir, out_dir, 'vasculature_mask');
+                write_ids_mask(nec_mask, data_dir, out_dir, 'necrosis_mask');
+                write_ids_mask(viatumor_mask, data_dir, out_dir, 'viable_tumor_mask');
+                write_ids_mask(paren_mask, data_dir, out_dir, 'parenchyma_mask');
             end
-            vasc_mask = pred_img == 2;
-            nec_mask = pred_img == 3;
-            viatumor_mask = pred_img == 4;
-            paren_mask = pred_img == 1;
-            
-            [~,~,~]=mkdir(patients{td});
-            save_dir = [out_dir, patients{td}];
-%             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
-            write_ids_mask(vasc_mask, data_dir, save_dir, 'vasculature_mask');
-            write_ids_mask(nec_mask, data_dir, save_dir, 'necrosis_mask');
-            write_ids_mask(viatumor_mask, data_dir, save_dir, 'viable_tumor_mask');
-            write_ids_mask(paren_mask, data_dir, save_dir, 'parenchyma_mask');
         end
     end
     toc
@@ -283,16 +291,8 @@ for td=1:num_patients %parfor
     auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
         compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
     
-    %{
-    auto_context_features = [compute_patches_spherical(maps,locations{td},...
-        sl_spherical,data{td},num_bins)];
-    %}
-    
     %save auto-context features in binary file 
     save_dummy_binary(auto_context_features,td,working_dir);
-%     fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'w');
-%     fwrite(fileID,A,'double');
-%     fclose(fileID);
     
     %if patient is "training patient", then save the relevant auto-context features
     %for future training purposes 
@@ -312,6 +312,37 @@ toc
 
 return
 end
+
+%function to compute auto-context features 
+function extract_autocontext_features_test(classification,...
+    data,locations,sl,sa,sl_spherical,num_bins,working_dir)
+
+disp('Extracting auto-context features...')
+tic
+
+%initialize variables
+num_classes = 4;
+
+td=1;
+load([working_dir,'/small_features_1.mat']);
+
+%compute label context features
+maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
+
+auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
+    compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
+
+%save auto-context features in binary file 
+%     save_dummy_binary(auto_context_features,td,working_dir);
+fileID = fopen([working_dir, '/context_1.bin'],'w');
+fwrite(fileID, auto_context_features, 'double');
+fclose(fileID);
+
+toc
+
+return
+end
+
 
 
 %compute structured auto-context features 

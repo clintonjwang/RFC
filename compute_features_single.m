@@ -1,16 +1,11 @@
-function compute_features_single(i, working_dir)
+function f = compute_features_single(data, f)
 
-data = load([working_dir,'/norm_data_',num2str(i),'.mat']);
-data = data.data_i;
 num_intensity_maps = length(data.p_im);
 num_frangi_maps = length(data.frangi); 
 num_grad_maps = length(data.grad); 
 num_sf_maps = length(data.sf);
 num_mode_maps = length(data.mode);
 num_haralick = 3;
-
-f = load([working_dir,'/init_features_',num2str(i),'.mat']);
-f = f.f;
 
 f.sz = size(data.tight_liver_mask);
 
@@ -101,7 +96,6 @@ f = append_context_features(f,data);
 f.auto_context_features=[]; 
 f.auto_context_features_boost=[]; 
 
-save([working_dir,'/features_',num2str(i),'.mat'],'f');
 % save_dummy(features, i, working_dir);
 
 return

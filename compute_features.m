@@ -8,7 +8,12 @@ if exist([working_dir,'/features_',num2str(1),'.mat'],'file') == 0
     tic
 % if ~isfield(f, 'auto_context_features_boost')
     for i=1:length(patients) %parfor
-        compute_features_single(i, working_dir);
+        data = load([working_dir,'/norm_data_',num2str(i),'.mat']);
+        data = data.data_i;
+        f = load([working_dir,'/init_features_',num2str(i),'.mat']);
+        f = f.f;
+        f = compute_features_single(data, f);
+        save([working_dir,'/features_',num2str(i),'.mat'],'f');
     end
     toc
 end

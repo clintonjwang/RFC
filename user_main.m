@@ -2,7 +2,7 @@
 % Hepatocellular Carcinoma by Fusing Structured and Rotationally Invariant
 % Context Representation. In: Descoteaux M., Maier-Hein L., Franz A.,
 % Jannin P., Collins D., Duchesne S. (eds) Medical Image Computing and
-% Computer-Assisted Intervention ? MICCAI 2017. MICCAI 2017. Lecture Notes
+% Computer-Assisted Intervention - MICCAI 2017. MICCAI 2017. Lecture Notes
 % in Computer Science, vol 10435. Springer, Cham
 % DOI https://doi.org/10.1007/978-3-319-66179-7_10
 
@@ -33,6 +33,7 @@ else
         return
     end
 end
+
 feature_dir = 'features';
 param_dir = 'params';
 train_bool = false;
@@ -40,29 +41,57 @@ save_files = false;
 patients = {test_dir};
 %[f,f,f] = fileparts(fn);
 
+model_dir = 'models';
+if ~exist(model_dir,'dir')
+    model_dir = uigetdir('', 'Select the folder containing all the models.');
+    if model_dir == 0
+        return
+    end
+end
+
+working_dir = 'working';
+[~, ~, ~] = mkdir(working_dir);
+
+if fast_mode
+    out_dir = 'output_masks';
+    [~, ~, ~] = mkdir(out_dir);
+else
+    out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
+    if out_dir == 0
+        return
+    end
+end
+
 % Collect images and whole liver masks
 data = acquire_data_single_pat(test_dir, train_bool);
-save([working_dir,'/data.mat'],'data_i')
 
-if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
+if exist([working_dir,'/init_features_1.mat'],'file') == 0
     % Initialize labels and locations
-    [data] = init_features(patients, working_dir);
+    f = struct;
+    f.locations = find(data.tight_liver_mask);
+    f.labels = zeros(length(f.locations),1);
+    save([working_dir,'/init_features_1.mat'], 'f');
     
     % Compute image features for the entire image
-    normalize_data(data, working_dir);
+    dcell = {data};
+    normalize_data(dcell, working_dir);
+    clear dcell;
 end
 
 % Separate features based on label
 % compute_features(patients, working_dir);
-features = compute_features_single([test_dir,'/data.mat'], test_dir, train_bool);
+data = load([working_dir,'/norm_data_1.mat']);
+data = data.data_i;
+f = compute_features_single(data, f);
+save([working_dir,'/features_1.mat'],'f');
 
 % Save intensities in a separate bin file
-if exist([working_dir,'/intensities_1.bin'],'file') == 0    
-    intensities_bin(patients, working_dir);
+if exist([working_dir,'/intensities_1.bin'],'file') == 0
+    intensities_bin({'placeholder.....'}, working_dir);
 end
 
 % Train random forest model
-tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir);
+tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, out_dir);
 
 % Display result
 % features = load([feature_dir,'/features_',num2str(idx),'.mat']);
