@@ -65,7 +65,7 @@ end
 % Collect images and whole liver masks
 data = acquire_data_single_pat(test_dir, train_bool);
 
-if exist([working_dir,'/init_features_1.mat'],'file') == 0
+if true%exist([working_dir,'/init_features_1.mat'],'file') == 0
     % Initialize labels and locations
     f = struct;
     f.locations = find(data.tight_liver_mask);
@@ -91,13 +91,14 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
 end
 
 % Train random forest model
-tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, out_dir);
+tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, test_dir, out_dir);
 
 % Display result
-% features = load([feature_dir,'/features_',num2str(idx),'.mat']);
-% pred_img = zeros(features.sz);
-% for pix_idx = 1:length(features.locations)
-%     pred_img(features.locations(pix_idx)) = features.labels(pix_idx);
-% end
-% image(pred_img(:,:,round(features.sz(3)*2/3)), 'CDataMapping','scaled');
-% colorbar;
+f = load([working_dir,'/classified_features_2.mat']);
+features = f.f;
+pred_img = zeros(features.sz);
+for pix_idx = 1:length(features.locations)
+    pred_img(features.locations(pix_idx)) = features.labels(pix_idx);
+end
+image(pred_img(:,:,round(features.sz(3)*2/3)), 'CDataMapping','scaled');
+colorbar;

@@ -1,4 +1,4 @@
-function data = acquire_data_single_pat(path, train_bool)
+function data = acquire_data_single_pat(data_dir, train_bool)
 %acquire_data_single_pat(path, train_bool)
 % path is the path to the patient folders
 % set train_bool to true if training
@@ -7,54 +7,55 @@ R=1.75; %desired low-resolution in mm
 
 nii_ext = {'*.nii; *.hdr; *.img; *.nii.gz'};
 
-data.pre = load_nii(try_find_file(path, '**/pre.nii.gz',...
+data.pre = load_nii(try_find_file(data_dir, '**/pre.nii',...
                     'Select the pre-contrast nifti file', nii_ext));
 
-mkdir([path,'/temp']);
+mkdir([data_dir,'/temp']);
 % fpath=dir(fullfile([path, patient, segs_dir], '**/wholeliver.ids'));
-if exist([path,'/temp/whole_liver.nii'],'file') == 0
+if true%exist([data_dir,'/temp/whole_liver.nii'],'file') == 0
     % get pixel dims from arterial phase nifti
-    temp = load_nii(try_find_file(path, '**/20s.nii.gz',...
+    temp = load_nii(try_find_file(data_dir, '**/20s.nii',...
                     'Select the arterial phase nifti file', nii_ext));
     temp_res(1) = temp.hdr.dime.pixdim(2); %extract pixel volume
     temp_res(2) = temp.hdr.dime.pixdim(3);
     temp_res(3) = temp.hdr.dime.pixdim(4);
 
     [N1,N2,N3] = size(double(flip_image(temp.img)));
+    data.orig_dims = [N1 N2 N3];
 
     %make nii file from whole liver segmentation
-    f=try_find_file(path, '**/whole*liver.ids',...
+    f=try_find_file(data_dir, '**/whole*liver.ids',...
                 'Select the whole liver segmentation', '*.ids');
     liver_mask = get_mask(f, N1,N2,N3);
     liver_nii = make_nii(flip_image(liver_mask),temp_res);
-    save_nii(liver_nii,[path,'/temp/whole_liver.nii']);
+    save_nii(liver_nii,[data_dir,'/temp/whole_liver.nii']);
 
     if train_bool
         %flags indicating the existence of vessel, tumor, and necrosis
         %segmentations 
-        f=try_find_file(path, '**/*vessel*.ids',...
+        f=try_find_file(data_dir, '**/*vessel*.ids',...
                     'Select the vasculature segmentation', '*.ids');
         mask = get_mask(f, N1,N2,N3);
         nii = make_nii(flip_image(mask),temp_res);
-        save_nii(nii,[path,'/temp/vessel.nii']);
+        save_nii(nii,[data_dir,'/temp/vessel.nii']);
         
-        f=try_find_file(path, '**/*tumor*.ids',...
+        f=try_find_file(data_dir, '**/*tumor*.ids',...
                     'Select the tumor segmentation', '*.ids');
         mask = get_mask(f, N1,N2,N3);
         nii = make_nii(flip_image(mask),temp_res);
-        save_nii(nii,[path,'/temp/tumor.nii']);
+        save_nii(nii,[data_dir,'/temp/tumor.nii']);
         
-        f=try_find_file(path, '**/*nec*.ids',...
+        f=try_find_file(data_dir, '**/*nec*.ids',...
                     'Select the tumor segmentation', '*.ids');
         mask = get_mask(f, N1,N2,N3);
         nii = make_nii(flip_image(mask),temp_res);
-        save_nii(nii,[path,'/temp/necrosis.nii']);
+        save_nii(nii,[data_dir,'/temp/necrosis.nii']);
     end
 
-    make_isotropic_niis(path, R, train_bool);
+    make_isotropic_niis(data_dir, R, train_bool);
 end
 
-data = load_niis(data, path, train_bool);
+data = load_niis(data, data_dir, train_bool);
 
 %get T1 image dimensions
 [N1,N2,N3] = size(data.art);
@@ -122,7 +123,7 @@ for count=1:length(i)
     mask(i(count),j(count),k(count))=1;
 end
 
-mask = transpose_mask_slices(mask);
+mask = transpose_mask_slices(mask, 'r');
 
 return
 
@@ -157,8 +158,10 @@ temp = zeros(size(data.art));
 x_max=min(size(data.liver_mask,1),N1); 
 y_max=min(size(data.liver_mask,2),N2);
 z_max=min(size(data.liver_mask,3),N3);
-temp(1:x_max,1:y_max,1:z_max)=data.liver_mask(1:x_max,1:y_max,1:z_max);  
-data.liver_mask=temp; 
+data.iso_full_size = size(data.liver_mask);
+temp(1:x_max,1:y_max,1:z_max)=data.liver_mask(1:x_max,1:y_max,1:z_max);
+data.cutoffs = [x_max y_max z_max];
+data.liver_mask=temp;
 
 if train_bool
     temp = zeros(size(data.art)); 
@@ -181,24 +184,6 @@ if train_bool
     z_max=min(size(data.tumor_mask,3),N3);
     temp(1:x_max,1:y_max,1:z_max)=data.tumor_mask(1:x_max,1:y_max,1:z_max);  
     data.tumor_mask=temp;
-end
-
-return
-
-function mask1 = transpose_mask_slices(mask)
-
-[N1,N2,N3] = size(mask);
-
-mask1 = zeros(N1,N2,N3);
-
-for k=1:N3
-    for i=1:N1
-        for j=1:N2
-            if(mask(i,j,k)==1)
-                mask1(j,i,k)=1;
-            end
-        end
-    end
 end
 
 return

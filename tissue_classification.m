@@ -122,29 +122,29 @@ for r=1:RAC
         %if patient is a "test patient" for this round of
         %cross-validation, then compute accuracy measures of the 
         %classification
-%         if ~train_mode
-        f.classification{r}=classification{td};
+        if ~train_bool
+            f.classification{r}=classification{td};
 
-        if r==1
-            f.AUC=[];
-            f.sensitivity = [];
-            f.specificity = [];
-            f.precision = [];
-            f.accuracy = [];
-            f.DSC = [];
+            if r==1
+                f.AUC=[];
+                f.sensitivity = [];
+                f.specificity = [];
+                f.precision = [];
+                f.accuracy = [];
+                f.DSC = [];
+            end
+
+            [AUC,sensitivity,specificity,precision,accuracy,DSC] = ...
+                compute_effectivness(f.classification{r},f.labels);
+            f.AUC(:,r) = AUC;
+            f.sensitivity(:,r) = sensitivity;
+            f.specificity(:,r) = specificity;
+            f.precision(:,r) = precision;
+            f.accuracy(:,r) = accuracy;
+            f.DSC(:,r) = DSC;
+            %save_dummy(f,td,working_dir);
+            save([working_dir,'/classified_features_',num2str(r),'.mat'],'f','-v7.3');
         end
-
-        [AUC,sensitivity,specificity,precision,accuracy,DSC] = ...
-            compute_effectivness(f.classification{r},f.labels);
-        f.AUC(:,r) = AUC;
-        f.sensitivity(:,r) = sensitivity;
-        f.specificity(:,r) = specificity;
-        f.precision(:,r) = precision;
-        f.accuracy(:,r) = accuracy;
-        f.DSC(:,r) = DSC;
-        %save_dummy(f,td,working_dir);
-        save([working_dir,'/classified_features_',num2str(td),'.mat'],'f','-v7.3');
-%         end
     end
     toc
 
@@ -180,10 +180,12 @@ for r=1:RAC
                 for pix_idx = 1:length(f.locations)
                     pred_img(f.locations(pix_idx)) = pred_labels(pix_idx);
                 end
-                vasc_mask = pred_img == 2;
-                nec_mask = pred_img == 3;
-                viatumor_mask = pred_img == 4;
-                paren_mask = pred_img == 1;
+                rescaled_img = round(imresize3(pred_img, [260 320 88]));
+%                 rescaled_img = pred_img;
+                vasc_mask = rescaled_img == 2;
+                nec_mask = rescaled_img == 3;
+                viatumor_mask = rescaled_img == 4;
+                paren_mask = rescaled_img == 1;
 
                 [~,~,~]=mkdir(out_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
@@ -194,7 +196,6 @@ for r=1:RAC
             end
         end
     end
-    toc
 end
 
 return
@@ -268,8 +269,8 @@ function train_data_ac = extract_autocontext_features(classification,...
     train_locs,num_context_features,sl_spherical,num_bins,working_dir)
 
 disp('Extracting auto-context features...')
-tic
 
+tic
 %initialize variables
 num_patients = length(classification);
 num_classes = 4;
