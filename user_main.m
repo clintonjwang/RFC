@@ -26,10 +26,10 @@ if ~fast_mode
 end
 
 if fast_mode
-    test_dir = '../small_data/0347479';
+    data_dir = '../small_data/0347479';
 else
-    test_dir = uigetdir('', 'Select the folder containing the patient to segment.');
-    if test_dir == 0
+    data_dir = uigetdir('', 'Select the folder containing the patient to segment.');
+    if data_dir == 0
         return
     end
 end
@@ -38,7 +38,7 @@ feature_dir = 'features';
 param_dir = 'params';
 train_bool = false;
 save_files = false;
-patients = {test_dir};
+patients = {data_dir};
 %[f,f,f] = fileparts(fn);
 
 model_dir = 'models';
@@ -63,7 +63,7 @@ else
 end
 
 % Collect images and whole liver masks
-data = acquire_data_single_pat(test_dir, train_bool);
+data = acquire_data_single_pat(data_dir, train_bool);
 
 if true%exist([working_dir,'/init_features_1.mat'],'file') == 0
     % Initialize labels and locations
@@ -91,14 +91,13 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
 end
 
 % Train random forest model
-tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, test_dir, out_dir);
+tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
 
 % Display result
-f = load([working_dir,'/classified_features_2.mat']);
-features = f.f;
-pred_img = zeros(features.sz);
-for pix_idx = 1:length(features.locations)
-    pred_img(features.locations(pix_idx)) = features.labels(pix_idx);
+load([working_dir,'/classified_features_2.mat']);
+pred_img = zeros(f.sz);
+for pix_idx = 1:length(f.locations)
+    pred_img(f.locations(pix_idx)) = f.classification{2}(pix_idx);
 end
-image(pred_img(:,:,round(features.sz(3)*2/3)), 'CDataMapping','scaled');
+image(pred_img(:,:,round(f.sz(3)*2/3)), 'CDataMapping','scaled');
 colorbar;

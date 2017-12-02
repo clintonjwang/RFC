@@ -30,8 +30,7 @@ for r=1:RAC
     clear C
     
     %calculate number of predictors (depending on r)
-    f = load([working_dir,'/small_features_1.mat']);
-    f = f.f;
+    load([working_dir,'/small_features_1.mat']);
     if(r==1)
         num_predictors=f.num_intensity_features;
     else
@@ -180,10 +179,13 @@ for r=1:RAC
                 for pix_idx = 1:length(f.locations)
                     pred_img(f.locations(pix_idx)) = pred_labels(pix_idx);
                 end
-                rescaled_img = round(imresize3(pred_img, [260 320 88]));
+%                 data{1}
+                pad_img = padarray(pred_img, data{1}.iso_full_size - data{1}.cutoffs_high, 0, 'post');
+                pad_img = padarray(pad_img, data{1}.cutoffs_low - 1, 0, 'pre');
+                rescaled_img = round(imresize3(pad_img, data{1}.orig_dims));
 %                 rescaled_img = pred_img;
-                vasc_mask = rescaled_img == 2;
-                nec_mask = rescaled_img == 3;
+                nec_mask = rescaled_img == 2;
+                vasc_mask = rescaled_img == 3;
                 viatumor_mask = rescaled_img == 4;
                 paren_mask = rescaled_img == 1;
 

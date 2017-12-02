@@ -65,7 +65,7 @@ data = shrink_masks(data, N1, N2, N3, train_bool);
 
 %compute tightened liver mask
 r=4;
-rs=r/data.resolution(1); 
+rs=r/data.resolution(1);
 D=bwdist(1-data.liver_mask);
 data.tight_liver_mask = zeros(N1,N2,N3);
 data.tight_liver_mask(D>rs) = data.liver_mask(D>rs);
@@ -86,6 +86,9 @@ j_max=max(j);
 
 k_min=min(k);
 k_max=max(k);
+
+data.cutoffs_high = [i_max, j_max, k_max];
+data.cutoffs_low = [i_min, j_min, k_min];
 
 sf={'pre','art','pv','t2','liver_mask','tumor_mask','bf',...
     'tight_liver_mask','vessel_mask','necrosis_mask'};
@@ -158,9 +161,8 @@ temp = zeros(size(data.art));
 x_max=min(size(data.liver_mask,1),N1); 
 y_max=min(size(data.liver_mask,2),N2);
 z_max=min(size(data.liver_mask,3),N3);
-data.iso_full_size = size(data.liver_mask);
 temp(1:x_max,1:y_max,1:z_max)=data.liver_mask(1:x_max,1:y_max,1:z_max);
-data.cutoffs = [x_max y_max z_max];
+data.iso_full_size = [x_max y_max z_max];
 data.liver_mask=temp;
 
 if train_bool
