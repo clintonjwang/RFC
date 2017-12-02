@@ -1,22 +1,17 @@
-% Treilhard J. et al. (2017) Liver Tissue Classification in Patients with
-% Hepatocellular Carcinoma by Fusing Structured and Rotationally Invariant
-% Context Representation. In: Descoteaux M., Maier-Hein L., Franz A.,
-% Jannin P., Collins D., Duchesne S. (eds) Medical Image Computing and
-% Computer-Assisted Intervention - MICCAI 2017. MICCAI 2017. Lecture Notes
-% in Computer Science, vol 10435. Springer, Cham
-% DOI https://doi.org/10.1007/978-3-319-66179-7_10
+function user_main(fast_mode)
+%USER_MAIN entry point for using the trained random forest classifier
 
-% Add paths, set paths
+if nargin < 1
+    fast_mode = true;
+end
+
 addpath(genpath('subroutines'));
 addpath(genpath('utils'));
-addpath(genpath('scripts'));
-addpath(genpath('additional'));
 
-fast_mode = true;
 if ~fast_mode
-    uiwait(msgbox(['This program automatically segments a liver into '...
-        'viable tumor, necrosis, vasculature and parenchyma. '...
-        'It requires registered pre-contrast and contrast enhanced abdominal '...
+    uiwait(msgbox(['Using this model requires that it has been previously '...
+        'trained. The weights should be saved as "tree_x.mat". '...
+        'The model also requires registered contrast enhanced T1/T2 '...
         'MRIs (in nifti format) along with the whole liver mask (in .ics/'...
         '.ids format). It outputs binary masks of the 4 classes (also in '...
         '.ics/.ids format). Only ICS version 1 is supported. '...
@@ -49,7 +44,7 @@ if ~exist(model_dir,'dir')
     end
 end
 
-working_dir = 'working';
+working_dir = 'working_test';
 [~, ~, ~] = mkdir(working_dir);
 
 if fast_mode
@@ -94,10 +89,19 @@ end
 tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
 
 % Display result
-load([working_dir,'/classified_features_2.mat']);
-pred_img = zeros(f.sz);
-for pix_idx = 1:length(f.locations)
-    pred_img(f.locations(pix_idx)) = f.classification{2}(pix_idx);
+% load([working_dir,'/classified_features_2.mat']);
+% pred_img = zeros(f.sz);
+% for pix_idx = 1:length(f.locations)
+%     pred_img(f.locations(pix_idx)) = f.classification{2}(pix_idx);
+% end
+% image(pred_img(:,:,round(f.sz(3)*2/3)), 'CDataMapping','scaled');
+% colorbar;
+
+[~, ~, ~] = rmdir(working_dir, 's');
+
+display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.3);
+display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.4);
+display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.5);
+display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.6);
+display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.7);
 end
-image(pred_img(:,:,round(f.sz(3)*2/3)), 'CDataMapping','scaled');
-colorbar;

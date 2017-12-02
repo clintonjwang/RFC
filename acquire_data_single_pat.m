@@ -109,7 +109,7 @@ if train_bool
     data.necrosis_contour = get_contour(data.necrosis_mask);
 end
 
-% [~, ~, ~] = rmdir([path,'/temp'], 's');
+[~, ~, ~] = rmdir([data_dir,'/temp'], 's');
 
 return
 

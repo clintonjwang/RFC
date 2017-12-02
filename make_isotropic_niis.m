@@ -1,52 +1,53 @@
 function make_isotropic_niis( data_dir, R, train_bool )
 %MAKE_ISOTROPIC_NIIS Summary of this function goes here
 %   Detailed explanation goes here
+    verbose = false;
 
     %reslice 20s image to be isotropic
     reslice_nii([data_dir,'/nii_files/20s.nii'],...
         [data_dir,'/temp/20s_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     %reslice pre image to be isotropic
     reslice_nii([data_dir,'/nii_files/pre_reg.nii'],...
         [data_dir,'/temp/pre_reg_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     %reslice 70s to be isotropic 
     reslice_nii([data_dir,'/nii_files/70s_reg.nii'],...
         [data_dir,'/temp/70s_reg_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     %reslice whole liver segmentation to be isotropic 
     reslice_nii([data_dir,'/nii_files/whole_liver.nii'],...
         [data_dir,'/temp/whole_liver_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     %reslice t2 image bias field estimate to be isotropic 
     reslice_nii([data_dir,'/nii_files/t2_bfc_reg.nii'],...
         [data_dir,'/temp/t2_bfc_reg_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     %reslice t1 image bias field estimate to be isotropic 
     reslice_nii([data_dir,'/nii_files/bias_corrected.nii'],...
         [data_dir,'/temp/bias_field_isotropic.nii'],...
-        [R,R,R]);
+        [R,R,R], verbose);
 
     if train_bool
         %reslice vessel segmentation to be isotropic 
         reslice_nii([data_dir,'/nii_files/vessel.nii'],...
             [data_dir,'/temp/vessel_isotropic.nii'],...
-            [R,R,R]);
+            [R,R,R], verbose);
 
         %reslice necrosis segmentation to be isotropic 
         reslice_nii([data_dir,'/nii_files/necrosis.nii'],...
             [data_dir,'/temp/necrosis_isotropic.nii'],...
-            [R,R,R]);
+            [R,R,R], verbose);
 
         %reslice tumor segmentation to be isotropic 
         reslice_nii([data_dir,'/nii_files/tumor.nii'],...
             [data_dir,'/temp/tumor_isotropic.nii'],...
-            [R,R,R]);
+            [R,R,R], verbose);
     end
 
 end

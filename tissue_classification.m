@@ -391,7 +391,7 @@ end
 %compute spherical histogram auto-context features 
 function temp = compute_patches_spherical(maps,locations,sl,data_i,num_bins)
 
-M = generate_spherical_masks1(sl);
+M = generate_spherical_masks(sl);
 num_spheres=length(M);
 sz=size(data_i.tight_liver_mask); 
 [ii,jj,kk] = ind2sub(sz,locations);

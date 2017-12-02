@@ -1,13 +1,17 @@
-% Add paths, set paths
+function train_main(fast_mode)
+%TRAIN_MAIN entry point for training the random forest tissue classifier.
+
+if nargin < 1
+    fast_mode = true;
+end
+
 addpath(genpath('subroutines'));
 addpath(genpath('utils'));
-addpath(genpath('scripts'));
-addpath(genpath('additional'));
+% addpath(genpath('scripts'));
+% addpath(genpath('additional'));
 
-fast_mode = true;
 if ~fast_mode
-    uiwait(msgbox(['Use this utility to retrain the segmentation tool. '...
-        'All the training data should be stored in a single folder '...
+    uiwait(msgbox(['All training data should be stored in a single folder '...
         'where each subfolder contains the data for a single patient. '...
         'There should be no extraneous subfolders. '...
         'Be sure that each patient subfolder has axial precontrast, arterial, ' 
@@ -15,7 +19,7 @@ if ~fast_mode
         'representing the whole liver, as well as 4 non-overlapping '...
         'binary masks representing viable tumor, necrosis, vasculature, '...
         'and parenchyma segmentations, each in ICS version 1 format.'...
-        'Once started, it may take up to several hours per patient.'], 'Random Forest training utility', 'modal'));
+        'Once started, it may take over an hour per patient.'], 'Random Forest training', 'modal'));
 end
 
 if fast_mode
@@ -29,7 +33,7 @@ end
 
 train_bool = true;
 model_dir = 'models';
-working_dir = 'working';
+working_dir = 'working_train';
 [~, ~, ~] = mkdir(model_dir);
 [~, ~, ~] = mkdir(working_dir);
 
@@ -65,3 +69,11 @@ end
 
 % Train random forest model
 tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir);
+
+[~, ~, ~] = rmdir(working_dir, 's');
+if ~fast_mode
+    uiwait(msgbox(['Training complete. The tree weights have been saved to ',...
+        model_dir, '.'], 'Random Forest training complete', 'modal'));
+end
+
+end

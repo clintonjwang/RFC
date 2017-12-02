@@ -21,10 +21,12 @@ Options2.BlackWhite=1;
 for i=1:length(data) %parfor
     tic
     
-    %bias field correction 
-    data{i}.pre = data{i}.pre./data{i}.bf;
-    data{i}.art = data{i}.art./data{i}.bf;
-    data{i}.pv = data{i}.pv./data{i}.bf; 
+    %bias field correction
+    if isfield(data{i}, 'bf')
+        data{i}.pre = data{i}.pre./data{i}.bf;
+        data{i}.art = data{i}.art./data{i}.bf;
+        data{i}.pv = data{i}.pv./data{i}.bf; 
+    end
     
     %normalize data by making it 0 mean, unit variance 
     m = mean(data{i}.pre(data{i}.tight_liver_mask==1));
