@@ -6,7 +6,6 @@ if nargin < 1
 end
 
 addpath(genpath('subroutines'));
-addpath(genpath('utils'));
 
 if ~fast_mode
     uiwait(msgbox(['Using this model requires that it has been previously '...
@@ -82,11 +81,11 @@ save([working_dir,'/features_1.mat'],'f');
 
 % Save intensities in a separate bin file
 if exist([working_dir,'/intensities_1.bin'],'file') == 0
-    intensities_bin({'placeholder.....'}, working_dir);
+    intensities_bin({''}, working_dir);
 end
 
 % Train random forest model
-tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
+tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
 
 % Display result
 % load([working_dir,'/classified_features_2.mat']);
@@ -99,9 +98,9 @@ tissue_classification({'placeholder.....'}, model_dir, working_dir, working_dir,
 
 [~, ~, ~] = rmdir(working_dir, 's');
 
-display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.3);
-display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.4);
-display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.5);
-display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.6);
-display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.7);
+% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.3);
+% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.4);
+% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.5);
+% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.6);
+% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.7);
 end

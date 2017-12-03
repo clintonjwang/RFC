@@ -17,8 +17,6 @@ switch button
         user_main(false)
     case 'Retrain the model'
         train_main(false)
-        disp('k')
     case 0
-        disp('eagargarg')
         return
 end

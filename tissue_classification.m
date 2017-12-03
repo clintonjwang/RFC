@@ -1,4 +1,4 @@
-function tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir)
+% function tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir)
 %TISSUE_CLASSIFICATION Multiple
 %   Detailed explanation goes here
 

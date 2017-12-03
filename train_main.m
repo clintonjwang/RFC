@@ -6,15 +6,12 @@ if nargin < 1
 end
 
 addpath(genpath('subroutines'));
-addpath(genpath('utils'));
-% addpath(genpath('scripts'));
-% addpath(genpath('additional'));
 
 if ~fast_mode
     uiwait(msgbox(['All training data should be stored in a single folder '...
         'where each subfolder contains the data for a single patient. '...
         'There should be no extraneous subfolders. '...
-        'Be sure that each patient subfolder has axial precontrast, arterial, ' 
+        'Be sure that each patient subfolder has axial precontrast, arterial, '...
         'venous, and delayed T1-w images, axial T2 images, a binary mask '...
         'representing the whole liver, as well as 4 non-overlapping '...
         'binary masks representing viable tumor, necrosis, vasculature, '...
@@ -29,6 +26,14 @@ else
     if train_dir == 0
         return
     end
+end
+
+if ~fast_mode
+    prompt = {'Enter number of trees to use:', 'Enter number of classification rounds:'};
+    dlg_title = 'Cascading random forest parameters';
+    num_lines = 1;
+    defaultans = {'8000','2'};
+    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
 end
 
 train_bool = true;
