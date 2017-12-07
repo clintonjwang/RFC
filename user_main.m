@@ -47,13 +47,15 @@ working_dir = 'working_test';
 [~, ~, ~] = mkdir(working_dir);
 
 if fast_mode
-    out_dir = 'output_masks';
+    out_dir = [data_dir,'/output_masks'];
     [~, ~, ~] = mkdir(out_dir);
 else
-    out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
-    if out_dir == 0
-        return
-    end
+    [data_dir,'/output_masks'];
+    [~, ~, ~] = mkdir(out_dir);
+%     out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
+%     if out_dir == 0
+%         return
+%     end
 end
 
 % Collect images and whole liver masks
@@ -84,8 +86,15 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
     intensities_bin({''}, working_dir);
 end
 
+% detect RFC settings
+if exist([model_dir,'/tree_3.mat'],'file') == 0
+    RAC = 3;
+else
+    RAC = 2;
+end
+
 % Train random forest model
-tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
+tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir, RAC);
 
 % Display result
 % load([working_dir,'/classified_features_2.mat']);
@@ -97,10 +106,14 @@ tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, dat
 % colorbar;
 
 [~, ~, ~] = rmdir(working_dir, 's');
+mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
 
-% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.3);
-% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.4);
-% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.5);
-% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.6);
-% display_masked_img('20s', {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'}, data_dir, 0.7);
+display_masked_img('20s', mask_names, data_dir, 0.4);
+display_masked_img('20s', {}, data_dir, 0.4);
+display_masked_img('20s', mask_names, data_dir, 0.5);
+display_masked_img('20s', {}, data_dir, 0.5);
+display_masked_img('20s', mask_names, data_dir, 0.6);
+display_masked_img('20s', {}, data_dir, 0.6);
+display_masked_img('20s', mask_names, data_dir, 0.7);
+display_masked_img('20s', {}, data_dir, 0.7);
 end

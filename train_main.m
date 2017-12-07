@@ -29,11 +29,29 @@ else
 end
 
 if ~fast_mode
-    prompt = {'Enter number of trees to use:', 'Enter number of classification rounds:'};
+    prompt = {'Enter number of decision trees in each random forest',...
+            'Enter number of classification rounds',...
+            'Enter structured context patch size',...
+            'Enter spherical context patch size',...
+            'Enter number of histogram bins for spherical histogram context features',...
+            'Enter number of auto-context features to sample per dimension',...
+            'Enter mininum number of leaves in decision trees'};
     dlg_title = 'Cascading random forest parameters';
     num_lines = 1;
-    defaultans = {'8000','2'};
+    defaultans = {'800','2','8','5','5','6','50'};
     answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+    
+    if answer == 0
+        return
+    end
+    
+    config.ntrees = str2double(answer{1});
+    config.RAC = str2double(answer{2});
+    config.sl = str2double(answer{3});
+    config.sl_spherical = str2double(answer{4});
+    config.num_bins = str2double(answer{5});
+    config.sa = str2double(answer{6});
+    config.min_leaf_size = str2double(answer{7});
 end
 
 train_bool = true;
@@ -46,18 +64,18 @@ patients = dir(train_dir);
 filenames = {patients.name};
 patients = filenames([patients.isdir]);
 patients = patients(3:end);
-num_patients = length(patients);
+% num_patients = length(patients);
 
 % Collect images and whole liver masks
 acquire_data(patients, train_dir, working_dir, train_bool);
 
-if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
-    % Initialize labels and locations
-    [data] = init_features(patients, working_dir);
-    
-    % Compute image features for the entire image
-    normalize_data(data, working_dir);
-end
+% if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
+% Initialize labels and locations
+[data] = init_features(patients, working_dir);
+
+% Compute image features for the entire image
+normalize_data(data, working_dir);
+% end
 
 % Separate features based on label
 compute_features(patients, working_dir);
@@ -73,7 +91,7 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
 end
 
 % Train random forest model
-tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir);
+tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, config);
 
 [~, ~, ~] = rmdir(working_dir, 's');
 if ~fast_mode

@@ -1,20 +1,27 @@
-% function tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir)
+function tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir, config)
 %TISSUE_CLASSIFICATION Multiple
 %   Detailed explanation goes here
 
+if train_bool
+    save([model_dir, '/tree_config.mat'], 'config');
+else
+    load([model_dir, '/tree_config.mat']);
+end
+
+ntrees = config.ntrees; %trees in each random forest, 800 by default
+RAC = config.RAC; %number of iterations of classification, 3 by default
+sl=config.sl; %structured context patch size, 8 by default
+sl_spherical=config.sl_spherical; %spherical context patch size, 5 by default
+num_bins=config.num_bins; %number of histogram bins for spherical histogram context features, 5 by default
+sa=config.sa; %number of auto-context features to sample per dimension, 6 by default
+min_leaf_size = config.min_leaf_size; %random forest parameter: mininum leaf size, 50 by default
+
+num_patients = length(patients); %total number of patients
+num_classes=4; %number of tissue classes
+
 %initialize global variables
-ntrees=800; %trees in each random forest 
-RAC=2; %3%number of iterations of classification
-sl=8; %structured context patch size
-sl_spherical=5; %spherical context patch size
-num_bins=5; %number of histogram bins for spherical histogram context features 
-sa=6; %number of auto-context features to sample per dimension
-% num_cv_iterations = length(train.train_labels); %number of folds of cv 
-num_patients = length(patients); %total number of patients 
-min_leaf_size=50; %random forest parameter: mininum leaf size 
 % opt = statset('UseParallel',4); %random forest parameter: train trees in parallel 
 % parpool(4); %number of cores to distribute processing over
-num_classes=4; %number of tissue classes
 M = generate_spherical_masks(sl_spherical); %generate spherical masks
 num_context_features = (sa^3) * (num_classes - 1)... %structured context features
          + ((num_classes-1)*num_bins*length(M)); %plus spherical context features 
