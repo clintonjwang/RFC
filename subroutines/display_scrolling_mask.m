@@ -5,12 +5,12 @@ function display_scrolling_mask( )
     data_dir = '../small_data/0347479';
     mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
     img_name = '20s';
-    img = obtain_3d_mask(img_name, mask_names, data_dir);
+    [img, orig_img] = obtain_3d_mask(img_name, mask_names, data_dir);
     [~,~,max_slice,~] = size(img);
     slice_num = round(max_slice/2);
 
     img_slice = squeeze(img(:,:,slice_num,:));
-    f = figure('Name', [img_name, ' masked']);
+    figure('Name', [img_name, ' masked']);
     image(img_slice,'CDataMapping','scaled');
     hold on;
     title([img_name, ' masked']);
@@ -71,7 +71,7 @@ function display_scrolling_mask( )
         old_slice = slice_num;
         slice_num = round(source.Value);
         if old_slice ~= slice_num
-            replot();
+            replot(false);
         end
     end
 
@@ -98,11 +98,13 @@ function display_scrolling_mask( )
             mask_names(todelete) = [];
         end
 
-        replot();
+        replot(true);
     end
 
-    function replot()
-        img = obtain_3d_mask(img_name, mask_names, data_dir);
+    function replot(get_new_image)
+        if get_new_image
+            img = apply_mask(orig_img, mask_names, data_dir);
+        end
         img_slice = squeeze(img(:,:,slice_num,:));
         image(img_slice,'CDataMapping','scaled');
         
@@ -121,8 +123,8 @@ function display_scrolling_mask( )
 end
 
 
-function img = obtain_3d_mask(img_name, mask_names, data_dir)
-%DISPLAY_MASKED_IMG Displays MRI slice with binary mask overlay
+function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, data_dir)
+%TKTK Displays MRI slice with binary mask overlay
 %   Mask is colored
 
     nii_ext = {'*.nii; *.hdr; *.img; *.nii.gz'};
@@ -130,12 +132,21 @@ function img = obtain_3d_mask(img_name, mask_names, data_dir)
     data = load_nii(try_find_file(data_dir, ['**/', img_name, '.nii'],...
             'Select the image.', nii_ext));
     img = double(flip_image(data.img));
-    [N1,N2,N3] = size(img);
     
     img = img/max(max(max(img)));
     img(:,:,:,2) = img(:,:,:,1);
     img(:,:,:,3) = img(:,:,:,1);
     
+    unmasked_img = img;
+    img = apply_mask(img, mask_names, data_dir);
+end
+
+
+function img = apply_mask(img, mask_names, data_dir)
+%TKTK Displays MRI slice with binary mask overlay
+%   Mask is colored
+
+    [N1,N2,N3,~] = size(img);
     if ~isempty(mask_names)
         f = try_find_file(data_dir, ['**/', mask_names{1}, '.ids'],...
                     'Select the first mask to apply', '*.ids');
@@ -158,7 +169,6 @@ function img = obtain_3d_mask(img_name, mask_names, data_dir)
                             'Select the third mask to apply', '*.ids');
                 mask = logical(get_mask(f, N1,N2,N3));
 
-%                 img(:,:,:,2) = img(:,:,:,2) .* ~mask + mask * 255;
                 img(:,:,:,2) = img(:,:,:,2) + (1 - img(:,:,:,2)) .* (mask * 0.1);
             end
         end

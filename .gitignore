@@ -8,4 +8,4 @@ models/*
 *.asv
 *.ics
 *.ids
-!*/NIfTI_20140122/*
+*/NIfTI_20140122/*
