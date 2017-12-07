@@ -1,6 +1,8 @@
 *.txt
 *.mat
-*/*
+docs/*
+backup/*
+models/*
 *.xlsx
 *.pdf
 *.asv
