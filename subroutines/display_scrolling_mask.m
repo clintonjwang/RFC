@@ -1,11 +1,12 @@
-function display_scrolling_mask( )
+function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, mask_display_names)
 %DISPLAY_SCROLLING_MASK Summary of this function goes here
 %   Detailed explanation goes here
 
-    data_dir = '../small_data/0347479';
-    mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
-    img_name = '20s';
-    [img, orig_img] = obtain_3d_mask(img_name, mask_names, data_dir);
+%     data_dir = '../small_data/0347479';
+    mask_names = orig_mask_names;
+%     mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
+%     img_name = '20s';
+    [img, orig_img] = obtain_3d_mask(img_name, mask_names, img_dir, mask_dir);
     [~,~,max_slice,~] = size(img);
     slice_num = round(max_slice/2);
 
@@ -26,22 +27,21 @@ function display_scrolling_mask( )
         legend(h, mask_names, 'Interpreter', 'none');
     end
 
-
-    % Create pop-up menu
-    % popup = uicontrol('Style', 'popup',...
-    %        'String', {'vasculature_mask','necrosis_mask','viable_tumor_mask'},...
-    %        'Position', [20 340 100 50],...
-    %        'Callback', @setmap);
-
-    uicontrol('Style', 'checkbox', 'String', 'Show vasculature',...
-        'Position', [20 70 50 20], 'Value', 1,...
-        'Callback', @toggle_vasc);
-    uicontrol('Style', 'checkbox', 'String', 'Show necrosis',...
-        'Position', [20 45 50 20], 'Value', 1,...
-        'Callback', @toggle_nec);
-    uicontrol('Style', 'checkbox', 'String', 'Show viable tumor',...
-        'Position', [20 20 50 20], 'Value', 1,...
-        'Callback', @toggle_tumor);
+    if ~isempty(mask_display_names)
+        uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(1)],...
+            'Position', [20 70 50 20], 'Value', 1,...
+            'Callback', @toggle_vasc);
+        if length(mask_display_names) > 1
+            uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(2)],...
+                'Position', [20 45 50 20], 'Value', 1,...
+                'Callback', @toggle_nec);
+            if length(mask_display_names) > 2
+                uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(3)],...
+                    'Position', [20 20 50 20], 'Value', 1,...
+                    'Callback', @toggle_tumor);
+            end
+        end
+    end
 
     % Create slider
     uicontrol('Style', 'slider',...
@@ -76,15 +76,15 @@ function display_scrolling_mask( )
     end
 
     function toggle_vasc(source,~)
-        toggle_mask('vasculature_mask', source);
+        toggle_mask(orig_mask_names(1), source);
     end
 
     function toggle_nec(source,~)
-        toggle_mask('necrosis_mask', source);
+        toggle_mask(orig_mask_names(2), source);
     end
 
     function toggle_tumor(source,~)
-        toggle_mask('viable_tumor_mask', source);
+        toggle_mask(orig_mask_names(3), source);
     end
 
     function toggle_mask(mask_name, source)
@@ -103,7 +103,7 @@ function display_scrolling_mask( )
 
     function replot(get_new_image)
         if get_new_image
-            img = apply_mask(orig_img, mask_names, data_dir);
+            img = apply_mask(orig_img, mask_names, img_dir);
         end
         img_slice = squeeze(img(:,:,slice_num,:));
         image(img_slice,'CDataMapping','scaled');
@@ -123,13 +123,13 @@ function display_scrolling_mask( )
 end
 
 
-function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, data_dir)
+function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, img_dir, mask_dir)
 %TKTK Displays MRI slice with binary mask overlay
 %   Mask is colored
 
     nii_ext = {'*.nii; *.hdr; *.img; *.nii.gz'};
     
-    data = load_nii(try_find_file(data_dir, ['**/', img_name, '.nii'],...
+    data = load_nii(try_find_file(img_dir, ['**/', img_name, '.nii'],...
             'Select the image.', nii_ext));
     img = double(flip_image(data.img));
     
@@ -138,7 +138,7 @@ function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, data_dir)
     img(:,:,:,3) = img(:,:,:,1);
     
     unmasked_img = img;
-    img = apply_mask(img, mask_names, data_dir);
+    img = apply_mask(img, mask_names, mask_dir);
 end
 
 

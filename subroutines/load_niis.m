@@ -1,4 +1,4 @@
-function data = load_niis( data, data_dir, train_bool )
+function data = load_niis( data, data_dir, train_bool, use_bias_field )
 %LOAD_NIIS Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -28,9 +28,11 @@ data.t2 = load_nii(try_find_file(data_dir, '**/t2_bfc_reg_isotropic.nii',...
 data.t2 = double(flip_image(data.t2.img));
 
 %load T1 bias field estimate 
-data.bf = load_nii(try_find_file(data_dir, '**/bias_field_isotropic.nii',...
-            'Select the T1 bias field estimate', nii_ext));
-data.bf = double(flip_image(data.bf.img));
+if use_bias_field
+    data.bf = load_nii(try_find_file(data_dir, '**/bias_field_isotropic.nii',...
+                'Select the T1 bias field estimate', nii_ext));
+    data.bf = double(flip_image(data.bf.img));
+end
 
 %load liver_mask
 data.liver_mask = load_nii(try_find_file(data_dir, '**/whole_liver_isotropic.nii',...

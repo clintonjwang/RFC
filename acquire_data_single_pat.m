@@ -1,4 +1,4 @@
-function data = acquire_data_single_pat(data_dir, train_bool)
+function data = acquire_data_single_pat(data_dir, train_bool, use_bias_field)
 %acquire_data_single_pat(path, train_bool)
 % path is the path to the patient folders
 % set train_bool to true if training
@@ -52,10 +52,10 @@ if true%exist([data_dir,'/temp/whole_liver.nii'],'file') == 0
         save_nii(nii,[data_dir,'/temp/necrosis.nii']);
     end
 
-    make_isotropic_niis(data_dir, R, train_bool);
+    make_isotropic_niis(data_dir, R, train_bool, use_bias_field);
 end
 
-data = load_niis(data, data_dir, train_bool);
+data = load_niis(data, data_dir, train_bool, use_bias_field);
 
 %get T1 image dimensions
 [N1,N2,N3] = size(data.art);

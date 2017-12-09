@@ -28,6 +28,7 @@ else
     end
 end
 
+use_bias_field = true;
 feature_dir = 'features';
 param_dir = 'params';
 train_bool = false;
@@ -50,16 +51,33 @@ if fast_mode
     out_dir = [data_dir,'/output_masks'];
     [~, ~, ~] = mkdir(out_dir);
 else
-    [data_dir,'/output_masks'];
-    [~, ~, ~] = mkdir(out_dir);
-%     out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
-%     if out_dir == 0
-%         return
-%     end
+    out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
+    if out_dir == 0
+        return
+    end
 end
 
+if ~fast_mode
+    prompt = {'Save features at the end of the run?',...
+            'Do images have separate T1-w bias field corrections saved as a nifti?'};
+    dlg_title = 'Run options';
+    num_lines = 1;
+    defaultans = {'no','yes'};
+    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+    
+    if answer == 0
+        return
+    end
+else
+    answer = {'yes','yes'};
+end
+
+save_features = strcmp(answer{1},'yes') == 1;
+use_bias_field = strcmp(answer{2},'yes') == 1;
+
+
 % Collect images and whole liver masks
-data = acquire_data_single_pat(data_dir, train_bool);
+data = acquire_data_single_pat(data_dir, train_bool, use_bias_field);
 
 if true%exist([working_dir,'/init_features_1.mat'],'file') == 0
     % Initialize labels and locations
@@ -86,34 +104,15 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
     intensities_bin({''}, working_dir);
 end
 
-% detect RFC settings
-if exist([model_dir,'/tree_3.mat'],'file') == 0
-    RAC = 3;
-else
-    RAC = 2;
+% Train random forest model
+tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
+
+if ~save_features
+    [~, ~, ~] = rmdir(working_dir, 's');
 end
 
-% Train random forest model
-tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir, RAC);
-
 % Display result
-% load([working_dir,'/classified_features_2.mat']);
-% pred_img = zeros(f.sz);
-% for pix_idx = 1:length(f.locations)
-%     pred_img(f.locations(pix_idx)) = f.classification{2}(pix_idx);
-% end
-% image(pred_img(:,:,round(f.sz(3)*2/3)), 'CDataMapping','scaled');
-% colorbar;
-
-[~, ~, ~] = rmdir(working_dir, 's');
 mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
-
-display_masked_img('20s', mask_names, data_dir, 0.4);
-display_masked_img('20s', {}, data_dir, 0.4);
-display_masked_img('20s', mask_names, data_dir, 0.5);
-display_masked_img('20s', {}, data_dir, 0.5);
-display_masked_img('20s', mask_names, data_dir, 0.6);
-display_masked_img('20s', {}, data_dir, 0.6);
-display_masked_img('20s', mask_names, data_dir, 0.7);
-display_masked_img('20s', {}, data_dir, 0.7);
+mask_display_names = {'vasculature', 'necrosis', 'viable tumor'};
+display_scrolling_mask('20s', data_dir, out_dir, mask_names, mask_display_names);
 end

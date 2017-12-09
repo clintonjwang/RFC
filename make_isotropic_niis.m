@@ -1,4 +1,4 @@
-function make_isotropic_niis( data_dir, R, train_bool )
+function make_isotropic_niis( data_dir, R, train_bool, use_bias_field )
 %MAKE_ISOTROPIC_NIIS Summary of this function goes here
 %   Detailed explanation goes here
     verbose = false;
@@ -28,10 +28,12 @@ function make_isotropic_niis( data_dir, R, train_bool )
         [data_dir,'/temp/t2_bfc_reg_isotropic.nii'],...
         [R,R,R], verbose);
 
-    %reslice t1 image bias field estimate to be isotropic 
-    reslice_nii([data_dir,'/nii_files/bias_corrected.nii'],...
-        [data_dir,'/temp/bias_field_isotropic.nii'],...
-        [R,R,R], verbose);
+    if use_bias_field
+        %reslice t1 image bias field estimate to be isotropic 
+        reslice_nii([data_dir,'/nii_files/bias_corrected.nii'],...
+            [data_dir,'/temp/bias_field_isotropic.nii'],...
+            [R,R,R], verbose);
+    end
 
     if train_bool
         %reslice vessel segmentation to be isotropic 

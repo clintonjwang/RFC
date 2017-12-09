@@ -7,6 +7,7 @@ end
 
 addpath(genpath('subroutines'));
 
+% Instructions
 if ~fast_mode
     uiwait(msgbox(['All training data should be stored in a single folder '...
         'where each subfolder contains the data for a single patient. '...
@@ -19,6 +20,7 @@ if ~fast_mode
         'Once started, it may take over an hour per patient.'], 'Random Forest training', 'modal'));
 end
 
+% Set training directory
 if fast_mode
     train_dir = '../small_data';
 else
@@ -28,6 +30,25 @@ else
     end
 end
 
+if ~fast_mode
+    prompt = {'Save features at the end of the run?',...
+            'Do images have separate T1-w bias field corrections saved as a nifti?'};
+    dlg_title = 'Run options';
+    num_lines = 1;
+    defaultans = {'no','yes'};
+    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+    
+    if answer == 0
+        return
+    end
+else
+    answer = {'yes','yes'};
+end
+
+save_features = strcmp(answer{1},'yes') == 1;
+use_bias_field = strcmp(answer{2},'yes') == 1;
+
+% Specify training options
 if ~fast_mode
     prompt = {'Enter number of decision trees in each random forest',...
             'Enter number of classification rounds',...
@@ -44,15 +65,18 @@ if ~fast_mode
     if answer == 0
         return
     end
-    
-    config.ntrees = str2double(answer{1});
-    config.RAC = str2double(answer{2});
-    config.sl = str2double(answer{3});
-    config.sl_spherical = str2double(answer{4});
-    config.num_bins = str2double(answer{5});
-    config.sa = str2double(answer{6});
-    config.min_leaf_size = str2double(answer{7});
+else
+    answer = {'800','2','8','5','5','6','50'};
 end
+
+config.ntrees = str2double(answer{1});
+config.RAC = str2double(answer{2});
+config.sl = str2double(answer{3});
+config.sl_spherical = str2double(answer{4});
+config.num_bins = str2double(answer{5});
+config.sa = str2double(answer{6});
+config.min_leaf_size = str2double(answer{7});
+
 
 train_bool = true;
 model_dir = 'models';
@@ -67,7 +91,7 @@ patients = patients(3:end);
 % num_patients = length(patients);
 
 % Collect images and whole liver masks
-acquire_data(patients, train_dir, working_dir, train_bool);
+acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field);
 
 % if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
 % Initialize labels and locations
@@ -93,10 +117,32 @@ end
 % Train random forest model
 tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, config);
 
-[~, ~, ~] = rmdir(working_dir, 's');
+if ~save_features
+    [~, ~, ~] = rmdir(working_dir, 's');
+end
+
 if ~fast_mode
     uiwait(msgbox(['Training complete. The tree weights have been saved to ',...
         model_dir, '.'], 'Random Forest training complete', 'modal'));
 end
 
 end
+
+% function vals = myGUI
+%     f = figure('units','pixels','position',[200,200,150,50],...
+%              'toolbar','none','menu','none');
+%     % Create yes/no checkboxes
+%     c(1) = uicontrol('style','checkbox','units','pixels',...
+%                     'position',[10,30,50,15],'string','Save features at end of run');
+%     c(2) = uicontrol('style','checkbox','units','pixels',...
+%                     'position',[90,30,50,15],'string','no');
+%     % Create OK pushbutton   
+%     p = uicontrol('style','pushbutton','units','pixels',...
+%                     'position',[40,5,70,20],'string','OK',...
+%                     'callback',@p_call);
+%     % Pushbutton callback
+%     function p_call(varargin)
+%         vals = get(c,'Value');
+% %         Close the window
+%     end
+% end
