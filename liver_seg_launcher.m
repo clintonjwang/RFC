@@ -1,3 +1,4 @@
+function liver_seg_launcher
 % Treilhard J. et al. (2017) Liver Tissue Classification in Patients with
 % Hepatocellular Carcinoma by Fusing Structured and Rotationally Invariant
 % Context Representation. In: Descoteaux M., Maier-Hein L., Franz A.,
@@ -15,9 +16,9 @@ button = questdlg(['This program segments livers from T1/T2 MRIs '...
 
 switch button
     case 'Use the trained model'
-        user_main(false)
+        user_main(false);
     case 'Retrain the model'
-        train_main(false)
+        train_main(false);
     case 'Display mask'
         fig = uifigure;
         cbx = uicheckbox(fig, 'Text','Show Value',...
@@ -25,4 +26,5 @@ switch button
                           'Position',[150 50 102 15]);
     case ''
         return
+end
 end

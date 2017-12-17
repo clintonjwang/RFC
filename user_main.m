@@ -28,12 +28,7 @@ else
     end
 end
 
-use_bias_field = true;
-feature_dir = 'features';
-param_dir = 'params';
 train_bool = false;
-save_files = false;
-patients = {data_dir};
 %[f,f,f] = fileparts(fn);
 
 model_dir = 'models';
