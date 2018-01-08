@@ -18,12 +18,13 @@ switch button
     case 'Use the trained model'
         user_main(false);
     case 'Retrain the model'
-        train_main(false);
+        train_main(true);
     case 'Display mask'
-        fig = uifigure;
-        cbx = uicheckbox(fig, 'Text','Show Value',...
-                          'Value', 1,...
-                          'Position',[150 50 102 15]);
+        disp('Not yet ready');
+%         fig = uifigure;
+%         cbx = uicheckbox(fig, 'Text','Show Value',...
+%                           'Value', 1,...
+%                           'Position',[150 50 102 15]);
     case ''
         return
 end

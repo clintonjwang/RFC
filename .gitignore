@@ -3,6 +3,8 @@
 docs/*
 backup/*
 models/*
+working_train/*
+working_test/*
 *.xlsx
 *.pdf
 *.asv

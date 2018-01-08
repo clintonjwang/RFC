@@ -2,11 +2,10 @@ function [ data ] = init_features( patients, working_dir )
 %INIT_FEATURES Summary of this function goes here
 %   Detailed explanation goes here
 
-tic
+disp('Generating feature cell arrays (<1 min)...');
 for i=1:length(patients)
     data{i} = load([working_dir,'/data_',num2str(i),'.mat']);
     data{i} = data{i}.data_i;
-    disp('Generating feature cell array...'); %fast
     features{i} = struct;
     features{i}.locations = find(data{i}.tight_liver_mask);
     features{i}.labels=zeros(length(features{i}.locations),1);
@@ -25,7 +24,6 @@ for i=1:length(patients)
     f = features{i};
     save([working_dir,'/init_features_',num2str(i),'.mat'], 'f');
 end
-toc
 
 end
 

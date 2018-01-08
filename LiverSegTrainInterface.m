@@ -1,35 +1,25 @@
-function masks = user_main(fast_mode)
-%USER_MAIN entry point for using the trained random forest classifier
+function [ status, message, outputVolume ] = LiverSegTrainInterface( inputVolume, inputParams )
+%LIVER_SEG_INTERFACE Summary of this function goes here
+%   Detailed explanation goes here
+%
+% INPUT parameters:
+%   inputVolume         - Registered pre-contrast, arterial, venous
+%   inputParams         - Random forest parameters
+% OUTPUT parameters:
+%   status              - bool value indicating success or failure
+%   message             - Message that may be used to provide information
+%                         on failures or success
+%   outputMetaDataDict  - Metadata dictionary of the Output Volume
+%   outputVolume        - Output Volume
 
-if nargin < 1
-    fast_mode = true;
-end
+status = false;
 
-addpath(genpath('subroutines'));
+inputHeader = inputVolume{1};
 
-if ~fast_mode
-    uiwait(msgbox(['Using this model requires that it has been previously '...
-        'trained. The weights should be saved as "tree_x.mat". '...
-        'The model also requires registered contrast enhanced T1/T2 '...
-        'MRIs (in nifti format) along with the whole liver mask (in .ics/'...
-        '.ids format). It outputs binary masks of the 4 classes (also in '...
-        '.ics/.ids format). Only ICS version 1 is supported. '...
-        'The program asks you to select a patient folder to look for the '...
-        'MRIs/masks in. If it cannot find a file automatically, it will '...
-        'prompt you for it.'], 'Random Forest Cascade utility', 'modal'));
-end
+%get number of voxels and number of slices from the header
+number_of_voxels = header.NumberOfVoxels;
 
-if fast_mode
-    data_dir = '../small_data/0347479';
-else
-    data_dir = uigetdir('', 'Select the folder containing the patient to segment.');
-    if data_dir == 0
-        return
-    end
-end
-
-train_bool = false;
-%[f,f,f] = fileparts(fn);
+data_dir = inputParams.data_dir;
 
 model_dir = 'models';
 if ~exist(model_dir,'dir')
@@ -109,5 +99,31 @@ end
 % Display result
 mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
 mask_display_names = {'vasculature', 'necrosis', 'viable tumor'};
-display_scrolling_mask('20s', data_dir, out_dir, mask_names, mask_display_names);
+
+
+
+
+header, metadata, voxel_data;
+voxel_data = user_main(false);
+header = cell(4,1);
+for i = 1:4
+    header{i}.HeaderVersion = '20171216';
+    header{i}.NumberOfVoxels = size(voxel_data);
+    header{i}.VolumeExtent = size(voxel_data);
+    header{i}.SliceThickness = VolumeExtent(3);
+    header{i}.RescaleSlope = 1;
+    header{i}.RescaleIntercept = 0;
+    header{i}.TransformationMatrix = zeros(12,1);
+    header{i}.Type = 1; %1 for binary, else 0
+    header{i}.Description = 'Segmentation';
 end
+
+outputVolume{1} = outputHeader;
+outputVolume{2} = outputMetaDataDict;
+outputVolume{3} = inputVolume{3};
+
+status = true;
+message = 'Successfully segmented input';
+
+end
+

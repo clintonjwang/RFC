@@ -22,7 +22,7 @@ end
 
 % Set training directory
 if fast_mode
-    train_dir = '../small_data';
+    train_dir = '../data';
 else
     train_dir = uigetdir('', 'Select the folder containing all the training data.');
     if train_dir == 0
@@ -38,11 +38,11 @@ if ~fast_mode
     defaultans = {'no','yes'};
     answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
     
-    if answer == 0
+    if ~iscell(answer)
         return
     end
 else
-    answer = {'yes','yes'};
+    answer = {'yes','no'};
 end
 
 save_features = strcmp(answer{1},'yes') == 1;
@@ -62,7 +62,7 @@ if ~fast_mode
     defaultans = {'800','2','8','5','5','6','50'};
     answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
     
-    if answer == 0
+    if ~iscell(answer)
         return
     end
 else
@@ -91,15 +91,18 @@ patients = patients(3:end);
 % num_patients = length(patients);
 
 % Collect images and whole liver masks
+tic
 acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field);
+toc
 
 % if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
 % Initialize labels and locations
+tic
 [data] = init_features(patients, working_dir);
+toc
 
 % Compute image features for the entire image
 normalize_data(data, working_dir);
-% end
 
 % Separate features based on label
 compute_features(patients, working_dir);
@@ -115,7 +118,7 @@ if exist([working_dir,'/intensities_1.bin'],'file') == 0
 end
 
 % Train random forest model
-tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, config);
+tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, model_dir, config);
 
 if ~save_features
     [~, ~, ~] = rmdir(working_dir, 's');

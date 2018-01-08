@@ -1,4 +1,4 @@
-function tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir, config)
+function masks = tissue_classification(patients, model_dir, working_dir, scratch_dir, train_bool, data_dir, out_dir, config)
 %TISSUE_CLASSIFICATION Multiple
 %   Detailed explanation goes here
 
@@ -30,7 +30,7 @@ for i=1:num_patients
     data{i} = load([working_dir,'/norm_data_',num2str(i),'.mat']);
     data{i} = data{i}.data_i;
 end
-    
+
 %loop through rounds of auto-context
 for r=1:RAC
     %clear trees from previous round of label-context
@@ -195,6 +195,8 @@ for r=1:RAC
                 vasc_mask = rescaled_img == 3;
                 viatumor_mask = rescaled_img == 4;
                 paren_mask = rescaled_img == 1;
+                
+                masks = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
 
                 [~,~,~]=mkdir(out_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
