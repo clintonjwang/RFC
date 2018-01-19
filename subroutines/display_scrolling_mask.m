@@ -1,12 +1,18 @@
 function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, mask_display_names)
 %DISPLAY_SCROLLING_MASK Summary of this function goes here
 %   Detailed explanation goes here
-
-%     data_dir = '../small_data/0347479';
+    
+    % Remember which masks were given which color and display name
+    orig_mask_names = get_mask_names(orig_mask_names, mask_dir);
+    colors_default = {'or', 'ob', 'og'};
+    colors_default = colors_default(1:length(orig_mask_names));
+    
+    color_map = containers.Map(orig_mask_names, colors_default);
+    name_map = containers.Map(orig_mask_names, mask_display_names);
+    
     mask_names = orig_mask_names;
-%     mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
-%     img_name = '20s';
     [img, orig_img] = obtain_3d_mask(img_name, mask_names, img_dir, mask_dir);
+    
     [~,~,max_slice,~] = size(img);
     slice_num = round(max_slice/2);
 
@@ -15,29 +21,20 @@ function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, ma
     image(img_slice,'CDataMapping','scaled');
     hold on;
     title([img_name, ' masked']);
-
-    if ~isempty(mask_names)
-        h(1) = plot(NaN,NaN,'or');
-        if length(mask_names) > 1
-            h(2) = plot(NaN,NaN,'ob');
-            if length(mask_names) > 2
-                h(3) = plot(NaN,NaN,'og');
-            end
-        end
-        legend(h, mask_names, 'Interpreter', 'none');
-    end
+    
+    replot_legend();
 
     if ~isempty(mask_display_names)
-        uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(1)],...
-            'Position', [20 70 50 20], 'Value', 1,...
+        uicontrol('Style', 'checkbox', 'String', ['Show ', name_map(char(mask_names(1)))],...
+            'Position', [20 70 120 20], 'Value', 1,...
             'Callback', @toggle_vasc);
         if length(mask_display_names) > 1
-            uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(2)],...
-                'Position', [20 45 50 20], 'Value', 1,...
+            uicontrol('Style', 'checkbox', 'String', ['Show ', name_map(char(mask_names(2)))],...
+                'Position', [20 45 120 20], 'Value', 1,...
                 'Callback', @toggle_nec);
             if length(mask_display_names) > 2
-                uicontrol('Style', 'checkbox', 'String', ['Show ', mask_display_names(3)],...
-                    'Position', [20 20 50 20], 'Value', 1,...
+                uicontrol('Style', 'checkbox', 'String', ['Show ', name_map(char(mask_names(3)))],...
+                    'Position', [20 20 120 20], 'Value', 1,...
                     'Callback', @toggle_tumor);
             end
         end
@@ -53,20 +50,24 @@ function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, ma
     uicontrol('Style','text',...
         'Position',[400 45 120 20],...
         'String','Slice (fraction)');
+    
+    function replot_legend
+        for i = 1:length(mask_names)
+            legend_names{i} = name_map(char(mask_names(i)));
+        end
 
-    % Make figure visble after adding all components
-%     f.Visible = 'on';
-    % This code uses dot notation to set properties. 
-    % Dot notation runs in R2014b and later.
-    % For R2014a and earlier: set(f,'Visible','on');
-
-    % function setmap(source,event)
-    %     val = source.Value;
-    %     maps = source.String;
-    %     newmap = maps{val};
-    %     colormap(newmap);
-    % end
-
+        if ~isempty(mask_names)
+            h(1) = plot(NaN,NaN, color_map(char(mask_names(1))));
+            if length(mask_names) > 1
+                h(2) = plot(NaN,NaN, color_map(char(mask_names(2))));
+                if length(mask_names) > 2
+                    h(3) = plot(NaN,NaN, color_map(char(mask_names(3))));
+                end
+            end
+            legend(h, legend_names, 'Interpreter', 'none');
+        end
+    end
+    
     function shift_slice(source,~)
         old_slice = slice_num;
         slice_num = round(source.Value);
@@ -89,11 +90,11 @@ function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, ma
 
     function toggle_mask(mask_name, source)
         if source.Value == source.Max
-            mask_names{length(mask_names) + 1} = mask_name;
+            mask_names{length(mask_names) + 1} = char(mask_name);
         else
             todelete = false(size(mask_names));
             for c = 1:length(mask_names)
-                todelete(c) = strcmp(mask_names{c}, mask_name) == 1;
+                todelete(c) = strcmp(mask_names{c}, char(mask_name)) == 1;
             end
             mask_names(todelete) = [];
         end
@@ -103,25 +104,35 @@ function display_scrolling_mask(img_name, img_dir, mask_dir, orig_mask_names, ma
 
     function replot(get_new_image)
         if get_new_image
-            img = apply_mask(orig_img, mask_names, img_dir);
+            img = apply_mask(orig_img, mask_names, mask_dir);
         end
         img_slice = squeeze(img(:,:,slice_num,:));
         image(img_slice,'CDataMapping','scaled');
         
+        for x = 1:length(mask_names)
+            legend_names{x} = name_map(mask_names{x});
+        end
+        
         h = zeros(length(mask_names), 1);
         if ~isempty(mask_names)
-            h(1) = plot(NaN,NaN,'or');
+            h(1) = plot(NaN,NaN, color_map(char(mask_names(1))));
             if length(mask_names) > 1
-                h(2) = plot(NaN,NaN,'ob');
+                h(2) = plot(NaN,NaN, color_map(char(mask_names(2))));
                 if length(mask_names) > 2
-                    h(3) = plot(NaN,NaN,'og');
+                    h(3) = plot(NaN,NaN, color_map(char(mask_names(3))));
                 end
             end
-            legend(h, mask_names, 'Interpreter', 'none');
+            legend(h, legend_names, 'Interpreter', 'none');
         end
     end
 end
 
+function mask_names = get_mask_names(mask_names, data_dir)
+    for i = 1:length(mask_names)
+        [~,mask_names{i},~] = fileparts(try_find_file(data_dir, ['**/*', mask_names{i}, '*.ids'],...
+                    'Select the masks to apply', '*.ids'));
+    end
+end
 
 function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, img_dir, mask_dir)
 %TKTK Displays MRI slice with binary mask overlay
@@ -129,8 +140,8 @@ function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, img_dir, mas
 
     nii_ext = {'*.nii; *.hdr; *.img; *.nii.gz'};
     
-    data = load_nii(try_find_file(img_dir, ['**/', img_name, '.nii'],...
-            'Select the image.', nii_ext));
+    data = load_nii(try_find_file(img_dir, ['**/', img_name, '.nii*'],...
+            'Select the base image for the masks (usually arterial phase).', nii_ext));
     img = double(flip_image(data.img));
     
     img = img/max(max(max(img)));
@@ -142,13 +153,13 @@ function [img, unmasked_img] = obtain_3d_mask(img_name, mask_names, img_dir, mas
 end
 
 
-function img = apply_mask(img, mask_names, data_dir)
+function img = apply_mask(img, mask_names, mask_dir)
 %TKTK Displays MRI slice with binary mask overlay
 %   Mask is colored
 
     [N1,N2,N3,~] = size(img);
     if ~isempty(mask_names)
-        f = try_find_file(data_dir, ['**/', mask_names{1}, '.ids'],...
+        f = try_find_file(mask_dir, ['**/', char(mask_names{1}), '.ids'],...
                     'Select the first mask to apply', '*.ids');
         mask = logical(get_mask(f, N1,N2,N3));
 %         img(:,:,:,2) = img(:,:,:,2) .* ~mask;
@@ -156,7 +167,7 @@ function img = apply_mask(img, mask_names, data_dir)
         img(:,:,:,1) = img(:,:,:,1) + (1 - img(:,:,:,1)) .* (mask * 0.1);
 
         if length(mask_names) > 1
-            f = try_find_file(data_dir, ['**/', mask_names{2}, '.ids'],...
+            f = try_find_file(mask_dir, ['**/', char(mask_names{2}), '.ids'],...
                         'Select the second mask to apply', '*.ids');
             mask = logical(get_mask(f, N1,N2,N3));
 
@@ -165,7 +176,7 @@ function img = apply_mask(img, mask_names, data_dir)
             img(:,:,:,3) = img(:,:,:,3) + (1 - img(:,:,:,3)) .* (mask * 0.1);
 
             if length(mask_names) > 2
-                f = try_find_file(data_dir, ['**/', mask_names{3}, '.ids'],...
+                f = try_find_file(mask_dir, ['**/', char(mask_names{3}), '.ids'],...
                             'Select the third mask to apply', '*.ids');
                 mask = logical(get_mask(f, N1,N2,N3));
 

@@ -11,20 +11,33 @@ button = questdlg(['This program segments livers from T1/T2 MRIs '...
     'into viable tumor, necrosis, vasculature and parenchyma using '...
     'a cascading random forest model (Treilhard et al., MICCAI 2017). '...
     'Are you retraining the model or using it?'], 'Liver Segmenter',...
-    'Retrain the model', 'Use the trained model', 'Display mask',...
-    'Use the trained model');
+    'Retrain the model (~30 min/patient)', 'Use the trained model (~30 min)', 'Display mask',...
+    'Use the trained model (~30 min)');
 
 switch button
-    case 'Use the trained model'
+    case 'Use the trained model (~30 min)'
         user_main(false);
-    case 'Retrain the model'
-        train_main(true);
+    case 'Retrain the model (~30 min/patient)'
+        train_main(false);
     case 'Display mask'
-        disp('Not yet ready');
-%         fig = uifigure;
-%         cbx = uicheckbox(fig, 'Text','Show Value',...
-%                           'Value', 1,...
-%                           'Position',[150 50 102 15]);
+%         disp('Not yet ready');
+%         mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
+        mask_display_names = {'vasculature', 'necrosis', 'viable tumor'};
+        mask_names = {'essels', 'necro', 'whole'};
+        
+        data_dir = 'E:/4-segmented lesions/ACcGBit/nii_files';
+        out_dir = 'E:/4-segmented lesions/ACcGBit/new segs';
+%         data_dir = uigetdir('', 'Select the folder containing the arterial image.');
+%         if data_dir == 0
+%             return
+%         end
+%         out_dir = uigetdir('', 'Select the folder containing the masks.');
+%         if out_dir == 0
+%             return
+%         end
+        
+        display_scrolling_mask('20s', data_dir, out_dir, mask_names, mask_display_names);
+
     case ''
         return
 end

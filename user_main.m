@@ -60,7 +60,7 @@ if ~fast_mode
     defaultans = {'no','yes'};
     answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
     
-    if answer == 0
+    if ~iscell(answer)
         return
     end
 else
