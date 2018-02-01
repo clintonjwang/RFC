@@ -1,4 +1,4 @@
-function data = acquire_data_single_pat(data_dir, train_bool, use_bias_field)
+function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
 %acquire_data_single_pat(path, train_bool)
 % path is the path to the patient folders
 % set train_bool to true if training
@@ -6,56 +6,85 @@ function data = acquire_data_single_pat(data_dir, train_bool, use_bias_field)
     R=1.75; %desired low-resolution in mm
 
     nii_ext = {'*.nii; *.hdr; *.img; *.nii.gz'};
+    niiname_map, isoname_map, longname_map = init_maps(data_dir, train_bool, filename_map);
+    niiname_map = containers.Map;
+    isoname_map = containers.Map;
+    longname_map = containers.Map;
+    
+    niiname_map('pre') = try_find_file(data_dir, filename_map('pre'),...
+                        'Select the pre-contrast nifti file', nii_ext);
+    niiname_map('art') = try_find_file(data_dir, filename_map('art'),...
+                        'Select the arterial phase nifti file', nii_ext);
+    niiname_map('liver_seg') = '/temp/whole_liver.nii';
+    
+    isoname_map('pre') = '/temp/pre_reg_isotropic.nii';
+    isoname_map('art') = '/temp/20s_isotropic.nii';
+    isoname_map('ven') = '/temp/70s_reg_isotropic.nii';
+    isoname_map('t2') = '/temp/t2_bfc_reg_isotropic.nii';
+    isoname_map('liver_seg') = '/temp/whole_liver_isotropic.nii';
+    isoname_map('t1_bfc') = try_find_file(data_dir, '**/bias_field_isotropic.nii',...
+                'Select the T1 bias field estimate', nii_ext);
+    
+    longname_map('pre') = 'T1 pre-contrast image';
+    longname_map('art') = 'T1 arterial phase';
+    longname_map('ven') = 'T1 portal venous phase';
+    longname_map('t2') = 'T2 image';
+    longname_map('liver_mask') = 'whole liver segmentation';
 
-    data.pre = load_nii(try_find_file(data_dir, '**/pre_reg.nii*',...
-                        'Select the pre-contrast nifti file', nii_ext));
-
+    if train_bool
+        segs = {'liver_seg', 'vasc_seg', 'tumor_seg', 'necro_seg'};
+        
+        niiname_map('tumor_seg') = '/temp/tumor.nii';
+        niiname_map('vasc_seg') = '/temp/vessel.nii';
+        niiname_map('necro_seg') = '/temp/necrosis.nii';
+        
+        isoname_map('tumor_seg') = '/temp/tumor_isotropic.nii';
+        isoname_map('vasc_seg') = '/temp/vessel_isotropic.nii';
+        isoname_map('necro_seg') = '/temp/necrosis_isotropic.nii';
+        
+        longname_map('tumor_seg') = 'tumor segmentation';
+        longname_map('vasc_seg') = 'vasculature segmentation';
+        longname_map('necro_seg') = 'necrosis segmentation';
+    else
+        segs = {'liver_seg'};
+    end
+    
+    
     mkdir([data_dir,'/temp']);
-    % fpath=dir(fullfile([path, patient, segs_dir], '**/wholeliver.ids'));
-    if true%exist([data_dir,'/temp/whole_liver.nii'],'file') == 0
-        % get pixel dims from arterial phase nifti
-        temp = load_nii(try_find_file(data_dir, '**/20s.nii*',...
-                        'Select the arterial phase nifti file', nii_ext));
-        temp_res(1) = temp.hdr.dime.pixdim(2); %extract pixel volume
-        temp_res(2) = temp.hdr.dime.pixdim(3);
-        temp_res(3) = temp.hdr.dime.pixdim(4);
-
-        [N1,N2,N3] = size(double(flip_image(temp.img)));
-        data.orig_dims = [N1 N2 N3];
-
-        %make nii file from whole liver segmentation
-        f=try_find_file(data_dir, '**/*liver.ids',...
-                    'Select the whole liver segmentation', '*.ids');
-        liver_mask = get_mask(f, N1,N2,N3);
-        liver_nii = make_nii(flip_image(liver_mask),temp_res);
-        save_nii(liver_nii,[data_dir,'/temp/whole_liver.nii']);
-
-        if train_bool
-            %flags indicating the existence of vessel, tumor, and necrosis
-            %segmentations 
-            f=try_find_file(data_dir, '**/*vessel*.ids',...
-                        'Select the vasculature segmentation', '*.ids');
-            mask = get_mask(f, N1,N2,N3);
-            nii = make_nii(flip_image(mask),temp_res);
-            save_nii(nii,[data_dir,'/temp/vessel.nii']);
-
-            f=try_find_file(data_dir, '**/*whole tumor.ids',...
-                        'Select the tumor segmentation', '*.ids');
-            mask = get_mask(f, N1,N2,N3);
-            nii = make_nii(flip_image(mask),temp_res);
-            save_nii(nii,[data_dir,'/temp/tumor.nii']);
-
-            f=try_find_file(data_dir, '**/*nec*.ids',...
-                        'Select the necrosis segmentation', '*.ids');
-            mask = get_mask(f, N1,N2,N3);
-            nii = make_nii(flip_image(mask),temp_res);
-            save_nii(nii,[data_dir,'/temp/necrosis.nii']);
-        end
-
-        make_isotropic_niis(data_dir, R, train_bool, use_bias_field);
+    
+    % get pixel dims from arterial phase nifti
+    temp = load_nii(niiname_map('art'));
+    temp_res(1) = temp.hdr.dime.pixdim(2);
+    temp_res(2) = temp.hdr.dime.pixdim(3);
+    temp_res(3) = temp.hdr.dime.pixdim(4);
+    [N1,N2,N3] = size(double(flip_image(temp.img)));
+    data.orig_dims = [N1 N2 N3];
+    
+    %make niis from other segs
+    for seg = segs
+        f=try_find_file(data_dir, filename_map(seg),...
+                    ['Select the ', longname_map(seg)], '*.ids');
+        mask = get_mask(f, N1,N2,N3);
+        nii = make_nii(flip_image(mask),temp_res);
+        save_nii(nii,[data_dir,niiname_map(seg)]);
     end
 
-    data = load_niis(data, data_dir, train_bool, use_bias_field);
+    % make isotropic niis
+    verbose = false;
+    for k = keys(niiname_map)
+        reslice_nii(niiname_map(k),...
+            [data_dir,isoname_map(k)],...
+            [R,R,R], verbose);
+    end
+%     end
+
+%     data = load_niis(data, data_dir, train_bool, isoname_map);
+    for k = {'pre','ven','t2','t1_bfc'}
+        data = setfield(data, get_nii_img(isoname_map(k)));
+    end
+    for k = segs
+        data = setfield(data, get_nii_img(isoname_map(k)));
+    end
 
     %get T1 image dimensions
     [N1,N2,N3] = size(data.art);

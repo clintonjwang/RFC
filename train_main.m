@@ -90,35 +90,45 @@ patients = filenames([patients.isdir]);
 patients = patients(3:end);
 % num_patients = length(patients);
 
+filename_map = containers.Map;
+filename_map('pre') = '**/pre_reg.nii*';
+filename_map('art') = '**/20s.nii*';
+filename_map('ven') = '**/70s_reg.nii*';
+filename_map('t2') = '**/t2_bfc_reg.nii*';
+%filename_map('t1-bfc') = '**/bias*.nii*';
+filename_map('liver_seg') = '**/*liver.ids';
+filename_map('tumor_seg') = '**/*whole tumor.ids';
+filename_map('vasc_seg') = '**/*vessel*.ids';
+filename_map('necro_seg') = '**/*nec*.ids';
+
 % Collect images and whole liver masks
 tic
-acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field);
+acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field, filename_map);
 toc
 
-% if exist([working_dir,'/init_features_',num2str(1),'.mat'],'file') == 0
-% Initialize labels and locations
-tic
-[data] = init_features(patients, working_dir);
+% Initialize labels and locations, and compute image features
+normalize_data(patients, working_dir);
 toc
-
-% Compute image features for the entire image
-normalize_data(data, working_dir);
 
 % Separate features based on label
 compute_features(patients, working_dir);
+toc
 
 % Generate training data
 if exist([working_dir,'/train.mat'],'file') == 0
     generate_training_data(patients, working_dir);
 end
+toc
 
 % Save intensities in a separate bin file
 if exist([working_dir,'/intensities_1.bin'],'file') == 0    
     intensities_bin(patients, working_dir);
 end
+toc
 
 % Train random forest model
 tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, model_dir, config);
+toc
 
 if ~save_features
     [~, ~, ~] = rmdir(working_dir, 's');
@@ -130,22 +140,3 @@ if ~fast_mode
 end
 
 end
-
-% function vals = myGUI
-%     f = figure('units','pixels','position',[200,200,150,50],...
-%              'toolbar','none','menu','none');
-%     % Create yes/no checkboxes
-%     c(1) = uicontrol('style','checkbox','units','pixels',...
-%                     'position',[10,30,50,15],'string','Save features at end of run');
-%     c(2) = uicontrol('style','checkbox','units','pixels',...
-%                     'position',[90,30,50,15],'string','no');
-%     % Create OK pushbutton   
-%     p = uicontrol('style','pushbutton','units','pixels',...
-%                     'position',[40,5,70,20],'string','OK',...
-%                     'callback',@p_call);
-%     % Pushbutton callback
-%     function p_call(varargin)
-%         vals = get(c,'Value');
-% %         Close the window
-%     end
-% end

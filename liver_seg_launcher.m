@@ -25,16 +25,16 @@ switch button
         mask_display_names = {'vasculature', 'necrosis', 'viable tumor'};
         mask_names = {'essels', 'necro', 'whole'};
         
-        data_dir = 'E:/4-segmented lesions/ACcGBit/nii_files';
-        out_dir = 'E:/4-segmented lesions/ACcGBit/new segs';
-%         data_dir = uigetdir('', 'Select the folder containing the arterial image.');
-%         if data_dir == 0
-%             return
-%         end
-%         out_dir = uigetdir('', 'Select the folder containing the masks.');
-%         if out_dir == 0
-%             return
-%         end
+%         data_dir = 'E:/4-segmented lesions/ACcGBit/nii_files';
+%         out_dir = 'E:/4-segmented lesions/ACcGBit/new segs';
+        data_dir = uigetdir('', 'Select the folder containing the arterial image.');
+        if data_dir == 0
+            return
+        end
+        out_dir = uigetdir('', 'Select the folder containing the masks.');
+        if out_dir == 0
+            return
+        end
         
         display_scrolling_mask('20s', data_dir, out_dir, mask_names, mask_display_names);
 

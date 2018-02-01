@@ -1,8 +1,10 @@
-function normalize_data(data, working_dir)
+function normalize_data(patients, working_dir)
 %normalize_data(data,features) computes features for classification 
 % data should contain all patients
 % data gains p_im, which captures pre, art, pv intensities and their diffs
 % data gains mode, grad, sf, frangi, and glcm (Haralick)
+
+[data] = init_features(patients, working_dir);
 
 disp('Normalizing data...');
 
@@ -18,8 +20,7 @@ Options2.verbose=0;
 Options2.BlackWhite=1;
 
 %loop through patients
-for i=1:length(data) %parfor
-    tic
+parfor i=1:length(data)
     
     %bias field correction
     if isfield(data{i}, 'bf')
@@ -32,17 +33,21 @@ for i=1:length(data) %parfor
     m = mean(data{i}.pre(data{i}.tight_liver_mask==1));
     s = sqrt(var(data{i}.pre(data{i}.tight_liver_mask==1)));
     
-    data{i}.pre = data{i}.pre - m;
-    data{i}.art = data{i}.art - m;
-    data{i}.pv = data{i}.pv - m;
+    for field = {'pre', 'art', 'pv'}
+        data{i} = setfield(data{i}, field, (getfield(data{i}, field) - m) / s + 10)
+    end
+
+%     data{i}.pre = data{i}.pre - m;
+%     data{i}.art = data{i}.art - m;
+%     data{i}.pv = data{i}.pv - m;
+%     
+%     data{i}.pre = data{i}.pre / s;
+%     data{i}.art = data{i}.art / s;
+%     data{i}.pv = data{i}.pv / s;
     
-    data{i}.pre = data{i}.pre / s;
-    data{i}.art = data{i}.art / s;
-    data{i}.pv = data{i}.pv / s;
-    
-    data{i}.pre = data{i}.pre + 10;
-    data{i}.art = data{i}.art + 10;
-    data{i}.pv = data{i}.pv + 10;
+%     data{i}.pre = data{i}.pre + 10;
+%     data{i}.art = data{i}.art + 10;
+%     data{i}.pv = data{i}.pv + 10;
     
     data{i}.p_im{1} = (data{i}.art - data{i}.pre)./data{i}.pre;
     data{i}.p_im{2} = (data{i}.art - data{i}.pv) ./ data{i}.art;
@@ -104,13 +109,13 @@ end
 clear temp
 
 disp('Computing Haralick texture features (slow)...');  % slow
-for i=1:length(data) %parfor
-    tic
+parfor i=1:length(data)
     f = load([working_dir,'/init_features_',num2str(i),'.mat']);
     f = f.f;
-    data{i}.glcm = compute_glcm(data{i}.p_im,f.locations,range); 
-    toc
-    
+    data{i}.glcm = compute_glcm(data{i}.p_im,f.locations,range);
+end
+
+for i=1:length(data)
     data_i = data{i};
     save([working_dir,'/norm_data_',num2str(i),'.mat'], 'data_i');
 end
