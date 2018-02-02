@@ -27,7 +27,7 @@ num_context_features = (sa^3) * (num_classes - 1)... %structured context feature
          + ((num_classes-1)*num_bins*length(M)); %plus spherical context features 
 
 for i=1:num_patients
-    data{i} = load([working_dir,'/norm_data_',num2str(i),'.mat']);
+    data{i} = load([working_dir,'/norm_data_',patients{i},'.mat']);
     data{i} = data{i}.data_i;
 end
 
@@ -37,13 +37,13 @@ for r=1:RAC
     clear C
     
     %calculate number of predictors (depending on r)
-    load([working_dir,'/small_features_1.mat']);
+    tmp = load([working_dir,'/small_features_',patients{1},'.mat']);
     if(r==1)
-        num_predictors=f.num_intensity_features;
+        num_predictors=tmp.num_intensity_features;
     else
-        num_predictors=f.num_intensity_features+num_context_features;
+        num_predictors=tmp.num_intensity_features+num_context_features;
     end
-    clear f
+    clear tmp
 
     if train_bool
         disp(['Fitting random forest (round ', num2str(r), ' of auto-context)...']);
@@ -85,17 +85,19 @@ for r=1:RAC
     
     tic
     %compute label probability maps for each tissue class and patient 
-    for td=1:num_patients %parfor
+    for i=1:num_patients
+        tmp=load([working_dir,'/small_features_',patients{i},'.mat']);
+        features{i}=tmp.f;
+    end
+    parfor td=1:num_patients
         %load corresponding patient
-        f=load([working_dir,'/small_features_',num2str(td),'.mat']);
-        f=f.f;
-        
+        f = features{td};
         if train_bool
-            disp(['Computing classification for patient...',num2str(td)]);
+            disp(['Computing classification for patient...',patients{td}]);
         end
         
         %read in appearance feature binary file for patient 
-        fileID = fopen([scratch_dir, '/intensities_',num2str(td),'.bin'],'r');
+        fileID = fopen([scratch_dir, '/intensities_',patients{td},'.bin'],'r');
         intensities = fread(fileID,[numel(f.labels),...
             f.num_intensity_features],'double');
         fclose(fileID);
@@ -114,7 +116,7 @@ for r=1:RAC
         else
             %read in binary file holding auto-context features for
             %patient
-            fileID = fopen([scratch_dir, '/context_',num2str(td),'.bin'],'r');
+            fileID = fopen([scratch_dir, '/context_',patients{td},'.bin'],'r');
             auto_context_features = fread(fileID,[numel(f.labels),...
                 num_context_features],'double');
             fclose(fileID);
@@ -148,8 +150,7 @@ for r=1:RAC
             f.precision(:,r) = precision;
             f.accuracy(:,r) = accuracy;
             f.DSC(:,r) = DSC;
-            %save_dummy(f,td,working_dir);
-            save([working_dir,'/classified_features_',num2str(r),'.mat'],'f','-v7.3');
+            save_dummy(f,[working_dir,'/classified_features_',num2str(r),'.mat']);
         end
     end
     toc
@@ -173,8 +174,9 @@ for r=1:RAC
                 classification,data,locations,sl,sa,...
                 sl_spherical,num_bins,scratch_dir);
         else
-            for td=1:num_patients %parfor
-                load([working_dir,'/small_features_',num2str(td),'.mat']);
+            parfor td=1:num_patients
+                f = features{td};
+%                 load([working_dir,'/small_features_',num2str(td),'.mat']);
 
                 scores = classification{td};
                 pred_labels = (scores(:,2)>scores(:,1)) .* (scores(:,2)>scores(:,3)).* (scores(:,2)>scores(:,4)) + ...
@@ -196,7 +198,7 @@ for r=1:RAC
                 viatumor_mask = rescaled_img == 4;
                 paren_mask = rescaled_img == 1;
                 
-                masks = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
+                masks{td} = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
 
                 [~,~,~]=mkdir(out_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
@@ -216,17 +218,17 @@ end
 
 
 %dummy function to allow variable saves inside parfor-loop 
-function [] = save_dummy(f,td,dir_main)
+function [] = save_dummy(f,path)
 
-save(['./features/features_',num2str(td),'.mat'],'f','-v7.3');
+save(path,'f','-v7.3');
 
 return
 end
 
 %dummy function to allow binary file saves inside parfor-loop 
-function [] = save_dummy_binary(A,td,dir_scratch60)
+function [] = save_dummy_binary(A,path)
 
-fileID = fopen([dir_scratch60, '/context_',num2str(td),'.bin'],'w');
+fileID = fopen(path,'w');
 fwrite(fileID,A,'double');
 fclose(fileID);
 
@@ -240,7 +242,7 @@ function [AUC,sensitivity,specificity,precision,accuracy,DSC]...
 %loop through labels
 for c=1:3
     %check if patient has corresponding tissue class
-    if(length(find(labels==c))>0)
+    if(~isempty(find(labels==c, 1)))
         lab = double(labels==c);
         [~,~,~,AUC(c,1)] = perfcurve(lab,scores(:,c+1),1);
         
@@ -279,209 +281,190 @@ function train_data_ac = extract_autocontext_features(classification,...
     data,locations,sl,sa,train_data,train_patients,...
     train_locs,num_context_features,sl_spherical,num_bins,working_dir)
 
-disp('Extracting auto-context features...')
+    disp('Extracting auto-context features...')
 
-tic
-%initialize variables
-num_patients = length(classification);
-num_classes = 4;
-num_train_points = length(train_patients);
+    tic
+    %initialize variables
+    num_patients = length(classification);
+    num_classes = 4;
+    num_train_points = length(train_patients);
 
-for td=1:num_patients
-    T{td}=[];
-    acf{td}=[];
-end
+    for td=1:num_patients
+        T{td}=[];
+        acf{td}=[];
+    end
 
-%loop through patients
-for td=1:num_patients %parfor
-    %load patient features
-    load([working_dir,'/small_features_',num2str(td),'.mat']);
-    
-    %compute label context features
-    maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
-    
-    auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
-        compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
-    
-    %save auto-context features in binary file 
-    save_dummy_binary(auto_context_features,td,working_dir);
-    
-    %if patient is "training patient", then save the relevant auto-context features
-    %for future training purposes 
-    T{td} = find(train_patients==td);
-    acf{td} = auto_context_features(train_locs(T{td}),:);
-end
+    tmp = load([working_dir,'/small_features_',num2str(td),'.mat']);
+    features{td} = tmp.f;
+    %loop through patients
+    parfor td=1:num_patients
+        %load patient features
+%         load([working_dir,'/small_features_',num2str(td),'.mat']);
+        f = features{td};
+        
+        %compute label context features
+        maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
 
-%augment the appearance features in the training data with auto-context
-%features
-temp=zeros(num_train_points,num_context_features);
-for td=1:num_patients
-    temp(T{td},:) = acf{td};
-end
+        auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
+            compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
 
-train_data_ac = [train_data,temp];
-toc
+        %save auto-context features in binary file 
+        save_dummy_binary(auto_context_features,[working_dir, '/context_',num2str(td),'.bin']);
 
-return
+        %if patient is "training patient", then save the relevant auto-context features
+        %for future training purposes 
+        T{td} = find(train_patients==td);
+        acf{td} = auto_context_features(train_locs(T{td}),:);
+    end
+
+    %augment the appearance features in the training data with auto-context
+    %features
+    temp=zeros(num_train_points,num_context_features);
+    for td=1:num_patients
+        temp(T{td},:) = acf{td};
+    end
+
+    train_data_ac = [train_data,temp];
+    toc
 end
 
 %function to compute auto-context features 
 function extract_autocontext_features_test(classification,...
     data,locations,sl,sa,sl_spherical,num_bins,working_dir)
 
-disp('Extracting auto-context features...')
-tic
+    disp('Extracting auto-context features...')
+    tic
 
-%initialize variables
-num_classes = 4;
+    %initialize variables
+    num_classes = 4;
 
-td=1;
-load([working_dir,'/small_features_1.mat']);
+    td=1;
+    load([working_dir,'/small_features_',num2str(td),'.mat']);
 
-%compute label context features
-maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
+    %compute label context features
+    maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
 
-auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
-    compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
+    auto_context_features = [compute_patches(maps,locations{td},sl,data{td},sa),...
+        compute_patches_spherical(maps,locations{td},sl_spherical,data{td},num_bins)];
 
-%save auto-context features in binary file 
-%     save_dummy_binary(auto_context_features,td,working_dir);
-fileID = fopen([working_dir, '/context_1.bin'],'w');
-fwrite(fileID, auto_context_features, 'double');
-fclose(fileID);
+    %save auto-context features in binary file 
+    save_dummy_binary(auto_context_features,[working_dir, '/context_',num2str(td),'.bin']);
+%     fileID = fopen([working_dir, '/context_1.bin'],'w');
+%     fwrite(fileID, auto_context_features, 'double');
+%     fclose(fileID);
 
-toc
+    toc
 
-return
+    return
 end
-
-
 
 %compute structured auto-context features 
 function temp = compute_patches(maps,locations,sl,data_i,sa)
-%initialize variables...
-sz=size(data_i.tight_liver_mask);
-[ii,jj,kk] = ind2sub(sz,locations);
+    %initialize variables...
+    sz=size(data_i.tight_liver_mask);
+    [ii,jj,kk] = ind2sub(sz,locations);
 
-for c=1:size(maps,1)
-    for c1=1:size(maps,2)
-        patches{c,c1}=zeros(length(ii),sa(c1)^3);
-    end
-end
-%loop through data points
-for d=1:length(ii)
-    for c1=1:size(maps,2)
-        
-        x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,sz(1)),sa(c1)));
-        y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,sz(2)),sa(c1)));
-        z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,sz(3)),sa(c1)));
-        sample_locs = combvec(x,y,z);
-        
-        inds = sub2ind(sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
-        
-        for c=1:size(maps,1)
-            patches{c,c1}(d,1:(sa(c1))^3) = maps{c,c1}(inds);
+    for c=1:size(maps,1)
+        for c1=1:size(maps,2)
+            patches{c,c1}=zeros(length(ii),sa(c1)^3);
         end
-   
     end
-end
+    %loop through data points
+    for d=1:length(ii)
+        for c1=1:size(maps,2)
 
-temp=[];
-for c=1:size(maps,1)
-    for c1=1:size(maps,2)
-        temp=[temp,patches{c,c1}];
+            x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,sz(1)),sa(c1)));
+            y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,sz(2)),sa(c1)));
+            z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,sz(3)),sa(c1)));
+            sample_locs = combvec(x,y,z);
+
+            inds = sub2ind(sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
+
+            for c=1:size(maps,1)
+                patches{c,c1}(d,1:(sa(c1))^3) = maps{c,c1}(inds);
+            end
+
+        end
     end
-end
 
-return
-end
+    temp=[];
+    for c=1:size(maps,1)
+        for c1=1:size(maps,2)
+            temp=[temp,patches{c,c1}];
+        end
+    end
 
+    return
+end
 
 %compute spherical histogram auto-context features 
 function temp = compute_patches_spherical(maps,locations,sl,data_i,num_bins)
 
-M = generate_spherical_masks(sl);
-num_spheres=length(M);
-sz=size(data_i.tight_liver_mask); 
-[ii,jj,kk] = ind2sub(sz,locations);
-num_maps = length(maps);
-N=(2*sl)+1;
+    M = generate_spherical_masks(sl);
+    num_spheres=length(M);
+    sz=size(data_i.tight_liver_mask); 
+    [ii,jj,kk] = ind2sub(sz,locations);
+    num_maps = length(maps);
+    N=(2*sl)+1;
 
-edges = [linspace(0,1,num_bins+1)];
+    edges = [linspace(0,1,num_bins+1)];
 
-for c=1:length(maps)
-    patches{c}=zeros(length(ii),(num_spheres*num_bins)); 
-end
-
-for d=1:length(ii)
-    
-    x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,sz(1)),N));
-    y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,sz(2)),N));
-    z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,sz(3)),N));
-    sample_locs = combvec(x,y,z);
-
-    inds = sub2ind(sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
-    
     for c=1:length(maps)
-        for s=1:num_spheres
-            h=histcounts(maps{c}(inds(M{s})),edges);
-            patches{c}(d,((s-1)*num_bins)+1:s*num_bins) = h;
-        end
+        patches{c}=zeros(length(ii),(num_spheres*num_bins)); 
     end
-    
-end
 
-temp=[];
-for c=1:num_maps
-   temp=[temp,patches{c}];  
-end
+    for d=1:length(ii)
 
-return
+        x=round(linspace(max(ii(d)-sl,1),min(ii(d)+sl,sz(1)),N));
+        y=round(linspace(max(jj(d)-sl,1),min(jj(d)+sl,sz(2)),N));
+        z=round(linspace(max(kk(d)-sl,1),min(kk(d)+sl,sz(3)),N));
+        sample_locs = combvec(x,y,z);
+
+        inds = sub2ind(sz,sample_locs(1,:),sample_locs(2,:),sample_locs(3,:));
+
+        for c=1:length(maps)
+            for s=1:num_spheres
+                h=histcounts(maps{c}(inds(M{s})),edges);
+                patches{c}(d,((s-1)*num_bins)+1:s*num_bins) = h;
+            end
+        end
+
+    end
+
+    temp=[];
+    for c=1:num_maps
+       temp=[temp,patches{c}];  
+    end
 end
 
 function s = compute_sensitivity(classification,labels)
+    TP = sum(classification.*labels);
+    FN = sum(labels.*(1-classification));
 
-TP = sum(classification.*labels);
-FN = sum(labels.*(1-classification));
-
-s = TP/(TP+FN);
-
-return
+    s = TP/(TP+FN);
 end
 
 function s = compute_specificity(classification,labels)
+    TN = sum((1-classification).*(1-labels));
+    FP = sum(classification.*(1-labels));
 
-TN = sum((1-classification).*(1-labels));
-FP = sum(classification.*(1-labels));
-
-s = TN/(TN+FP);
-
-return
+    s = TN/(TN+FP);
 end
 
 function s = compute_accuracy(classification,labels)
+    TN = sum((1-classification).*(1-labels));
+    FP = sum(classification.*(1-labels));
 
-TN = sum((1-classification).*(1-labels));
-FP = sum(classification.*(1-labels));
-
-s = TN/(TN+FP);
-
-return
+    s = TN/(TN+FP);
 end
 
 function s = compute_precision(classification,labels)
+    TP = sum(classification.*labels);
+    FP = sum(classification.*(1-labels));
 
-TP = sum(classification.*labels);
-FP = sum(classification.*(1-labels));
-
-s = TP/(TP+FP);
-
-return
+    s = TP/(TP+FP);
 end
 
 function DSC = compute_DSC(classification,lab)
-
-DSC=2*sum(classification.*lab)/(sum(classification)+sum(lab));
-
-return
+    DSC=2*sum(classification.*lab)/(sum(classification)+sum(lab));
 end

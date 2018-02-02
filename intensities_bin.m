@@ -9,19 +9,19 @@ function intensities_bin(patients, working_dir)
 disp('Saving intensities as bin files...');
 
 for i = 1:length(patients) %parfor
-    f = load([working_dir,'/features_',num2str(i),'.mat']);
+    f = load([working_dir,'/features_',patients{i},'.mat']);
     f = f.f;
     
     intensities = reshape(f.intensities, [size(f.intensities,1)*size(f.intensities,2), 1]);
     
-    fileID = fopen([working_dir,'/intensities_',num2str(i),'.bin'],'w');
+    fileID = fopen([working_dir,'/intensities_',patients{i},'.bin'],'w');
     fwrite(fileID,intensities,'double');
     fclose(fileID);
     
     locations{i} = f.locations;
     f.num_intensity_features = size(f.intensities, 2); %301
     f.intensities = [];
-    save([working_dir,'/small_features_',num2str(i),'.mat'],'f','-v7.3');
+    save([working_dir,'/small_features_',patients{i},'.mat'],'f','-v7.3');
 end
 save([working_dir,'/locations.mat'],'locations','-v7.3');
 

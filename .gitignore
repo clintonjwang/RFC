@@ -1,5 +1,6 @@
 *.txt
 *.mat
+scratch*
 docs/*
 backup/*
 models/*

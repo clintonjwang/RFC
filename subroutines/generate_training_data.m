@@ -2,7 +2,7 @@ function train = generate_training_data(patients, working_dir)
 %GENERATE_TRAINING_DATA Summary of this function goes here
 %   features is not modified
 
-f = load([working_dir,'/features_',num2str(1),'.mat']);
+f = load([working_dir,'/features_',patients{1},'.mat']);
 f = f.f;
 
 % if ~isfield(f, 'num_intensity_features')
@@ -11,7 +11,7 @@ nf = size(f.intensities,2);
 disp('Extracting training data...');
 
 for i=1:length(patients)
-    features{i} = load([working_dir,'/features_',num2str(i),'.mat']);
+    features{i} = load([working_dir,'/features_',patients{i},'.mat']);
     features{i} = features{i}.f.labels;
 end
 
@@ -26,7 +26,7 @@ for i=1:length(patients)
     loc_i = find(train.train_patients==i);
 
     if(~isempty(loc_i))
-        features{i} = load([working_dir,'/features_',num2str(i),'.mat']);
+        features{i} = load([working_dir,'/features_',patients{i},'.mat']);
         features{i} = features{i}.f;
 
         for li=loc_i'

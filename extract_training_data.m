@@ -55,10 +55,10 @@ for train_indx=1:num_train_pats
     necrosis_patients = [necrosis_patients;train_indices(train_indx)*ones(length(necl),1)];
 end
 
-% T_par=200000; 
-% T_other=50000;
-T_par=20000; 
-T_other=5000;
+T_par=200000; 
+T_other=50000;
+% T_par=20000;
+% T_other=5000;
 
 p=randsample(length(normal_locs),T_par); 
 normal_locs=normal_locs(p); 

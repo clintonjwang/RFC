@@ -1,10 +1,11 @@
-function [ output_args ] = delete_file( input_args )
+function success = delete_file( filepath )
 %DELETE_FILE Summary of this function goes here
 %   Detailed explanation goes here
 
-if exist('ResultFile.txt', 'file') == 2
-  delete('ResultFile.txt');
+    if exist(filepath, 'file') == 2
+        delete(filepath);
+        success = true;
+    else
+        success = false;
+    end
 end
-
-end
-
