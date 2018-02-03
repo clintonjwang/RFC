@@ -38,7 +38,7 @@ function train_main(skipgui)
     
     % Set training directory
     if skipgui
-        train_dir = 'E:/preproc'; %'E:/4-segmented HCCs';
+        train_dir = 'E:/4-segmented HCCs';
     else
         train_dir = uigetdir('', 'Select the folder containing all the training data.');
         if train_dir == 0
@@ -104,8 +104,8 @@ function train_main(skipgui)
     % num_patients = length(patients);
 
     %% Run algorithm
-    % Collect images and whole liver masks
     tic
+    % Collect images and whole liver masks
     acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field, filename_map);
     toc
 
@@ -120,13 +120,11 @@ function train_main(skipgui)
     % Generate training data
     if exist([working_dir,'/train.mat'],'file') == 0
         generate_training_data(patients, working_dir);
+        toc
     end
-    toc
 
     % Save intensities in a separate bin file
-    if exist([working_dir,'/intensities_1.bin'],'file') == 0    
-        intensities_bin(patients, working_dir);
-    end
+    intensities_bin(patients, working_dir);
     toc
 
     % Train random forest model

@@ -4,8 +4,6 @@ function normalize_data(patients, working_dir)
     % data gains p_im, which captures pre, art, pv intensities and their diffs
     % data gains mode, grad, sf, frangi, and glcm (Haralick)
 
-    [data] = init_features(patients, working_dir);
-
     disp('Normalizing data...');
 
     %parameters for Frangi vessel filter computation 
@@ -19,108 +17,95 @@ function normalize_data(patients, working_dir)
     Options2.verbose=0;
     Options2.BlackWhite=1;
 
+    % create feature cells for each class type
+   init_features(patients, working_dir);
+    
     %loop through patients
-    parfor i=1:length(data)
+    parfor i=1:length(patients)
+        if exist([working_dir,'/norm_data_',patients{i},'.mat'],'file') == 0
+            data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
+            
+            %bias field correction
+            if isfield(data, 't1_bfc')
+                data.pre = data.pre./data.t1_bfc;
+                data.art = data.art./data.t1_bfc;
+                data.pv = data.pv./data.t1_bfc;
+            end
 
-        %bias field correction
-        if isfield(data{i}, 'bf')
-            data{i}.pre = data{i}.pre./data{i}.bf;
-            data{i}.art = data{i}.art./data{i}.bf;
-            data{i}.pv = data{i}.pv./data{i}.bf; 
-        end
+            %normalize data by making it 0 mean, unit variance 
+            m = mean(data.pre(data.tight_liver_mask==1));
+            s = sqrt(var(data.pre(data.tight_liver_mask==1)));
 
-        %normalize data by making it 0 mean, unit variance 
-        m = mean(data{i}.pre(data{i}.tight_liver_mask==1));
-        s = sqrt(var(data{i}.pre(data{i}.tight_liver_mask==1)));
+            for field = {'pre', 'art', 'pv'}
+                data.(char(field)) = (data.(char(field)) - m) / s + 10;
+            end
 
-        for field = {'pre', 'art', 'pv'}
-            data{i}.(char(field)) = (data{i}.(char(field)) - m) / s + 10;
-        end
+            data.p_im{1} = (data.art - data.pre)./data.pre;
+            data.p_im{2} = (data.art - data.pv) ./ data.art;
+            data.p_im{3} = (data.pv - data.pre) ./ data.pre;
+            data.p_im{4} = data.pre;
+            data.p_im{5} = data.art;
+            data.p_im{6} = data.pv;
 
-    %     data{i}.pre = data{i}.pre - m;
-    %     data{i}.art = data{i}.art - m;
-    %     data{i}.pv = data{i}.pv - m;
-    %     
-    %     data{i}.pre = data{i}.pre / s;
-    %     data{i}.art = data{i}.art / s;
-    %     data{i}.pv = data{i}.pv / s;
+            data.mode{1} = compute_mode_map(data.p_im{1},data.tight_liver_mask);
+            data.mode{2} = compute_mode_map(data.p_im{2},data.tight_liver_mask);
+            data.mode{3} = compute_mode_map(data.p_im{3},data.tight_liver_mask);
+            data.mode{4} = compute_mode_map(data.t2,data.tight_liver_mask);
 
-    %     data{i}.pre = data{i}.pre + 10;
-    %     data{i}.art = data{i}.art + 10;
-    %     data{i}.pv = data{i}.pv + 10;
+            m = mean(data.t2(data.tight_liver_mask==1));
+            s = sqrt(var(data.t2(data.tight_liver_mask==1)));
+            data.t2 = (data.t2 - m) / s;
 
-        data{i}.p_im{1} = (data{i}.art - data{i}.pre)./data{i}.pre;
-        data{i}.p_im{2} = (data{i}.art - data{i}.pv) ./ data{i}.art;
-        data{i}.p_im{3} = (data{i}.pv - data{i}.pre) ./ data{i}.pre;
-        data{i}.p_im{4} = data{i}.pre;
-        data{i}.p_im{5} = data{i}.art;
-        data{i}.p_im{6} = data{i}.pv;
+            % Computing gradient and std filter maps
+            for j=1:length(data.p_im)
+                data.grad{j} = compute_gradient_image(data.p_im{j});
+                data.sf{j} = stdfilt(data.p_im{j});
+            end
 
-        data{i}.mode{1} = compute_mode_map(data{i}.p_im{1},data{i}.tight_liver_mask);
-        data{i}.mode{2} = compute_mode_map(data{i}.p_im{2},data{i}.tight_liver_mask);
-        data{i}.mode{3} = compute_mode_map(data{i}.p_im{3},data{i}.tight_liver_mask);
-        data{i}.mode{4} = compute_mode_map(data{i}.t2,data{i}.tight_liver_mask);
-
-        %normalize T2 image to be 0 mean, unit variance 
-        m = mean(data{i}.t2(data{i}.tight_liver_mask==1));
-        s = sqrt(var(data{i}.t2(data{i}.tight_liver_mask==1)));
-        data{i}.t2 = data{i}.t2 - m;
-        data{i}.t2 = data{i}.t2 / s; 
-
-    %     disp('Computing gradient and std filter maps...'); %very fast (<1s)
-        for j=1:length(data{i}.p_im)
-            data{i}.grad{j} = compute_gradient_image(data{i}.p_im{j});
-            data{i}.sf{j} = stdfilt(data{i}.p_im{j});
-        end
-
-    %     disp('Computing Frangi features...'); %fast (<1 min)
-        data{i}.frangi{1} = FrangiFilter3D(data{i}.p_im{3},Options1);
-        data{i}.frangi{2} = FrangiFilter3D(data{i}.p_im{2},Options2);
-        data{i}.frangi{3} = FrangiFilter3D(data{i}.p_im{1},Options1);
-
-        if(isfield(data{i},'pre'))
-            data{i} = rmfield(data{i},'pre');
-        end
-        if(isfield(data{i},'art'))
-            data{i} = rmfield(data{i},'art');
-        end
-        if(isfield(data{i},'pv'))
-            data{i} = rmfield(data{i},'pv');
-        end
-        if(isfield(data{i},'bf'))
-            data{i} = rmfield(data{i},'bf');
+            % Computing Frangi features
+            data.frangi{1} = FrangiFilter3D(data.p_im{3},Options1);
+            data.frangi{2} = FrangiFilter3D(data.p_im{2},Options2);
+            data.frangi{3} = FrangiFilter3D(data.p_im{1},Options1);
+            
+            for k = {'pre','art','pv','t1_bfc'}
+                k = char(k);
+                if(isfield(data,k))
+                    data = rmfield(data,k);
+                end
+            end
+            save_wrapper(data, [working_dir,'/data_',patients{i},'.mat']);
         end
     end
 
-    for j=1:length(data{1}.p_im)
+    
+    data = load_wrapper([working_dir,'/data_',patients{1},'.mat']);
+    for j=1:length(data.p_im)
         temp{j}=[];
     end
 
-    for i=1:length(data)
-        for j=1:length(data{1}.p_im)
+    for i=1:length(patients)
+        data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
+        for j=1:length(data.p_im)
             temp{j} = [temp{j};...
-                data{i}.p_im{j}(data{i}.tight_liver_mask==1)];
+                data.p_im{j}(data.tight_liver_mask==1)];
         end
     end
 
-    for j=1:length(data{1}.p_im)
+    for j=1:length(data.p_im)
        range{j}=prctile(temp{j},[1,99]); 
     end
     clear temp
 
-    disp('Computing Haralick texture features (slow)...');  % slow
-    parfor i=1:length(data)
-        f = load([working_dir,'/init_features_',patients{i},'.mat']);
-        f = f.f;
-        data{i}.glcm = compute_glcm(data{i}.p_im,f.locations,range);
+    
+    disp('Computing Haralick texture features (slow)...');
+    parfor i=1:length(patients)
+        if exist([working_dir,'/norm_data_',patients{i},'.mat'],'file') == 0
+            data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
+            f = load_wrapper([working_dir,'/init_features_',patients{i},'.mat']);
+            data.glcm = compute_glcm(data.p_im, f.locations, range);
+            save_wrapper(data, [working_dir,'/norm_data_',patients{i},'.mat']);
+        end
     end
-
-    for i=1:length(data)
-        data_i = data{i};
-        save([working_dir,'/norm_data_',patients{i},'.mat'], 'data_i');
-    end
-
-    return
 end
 
 
@@ -205,4 +190,33 @@ function md = compute_mode_distance(value,edges,mode_bin,num_bins,...
     end
 
     return
+end
+
+
+function init_features( patients, working_dir )
+%INIT_FEATURES Summary of this function goes here
+%   Detailed explanation goes here
+
+    % Generating feature cell arrays
+    parfor i=1:length(patients)
+        if exist([working_dir,'/init_features_',patients{i},'.mat'],'file') == 0
+            data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
+            features = struct;
+            features.locations = find(data.tight_liver_mask);
+            features.labels = zeros(length(features.locations),1);
+
+            for c=1:length(features.locations)
+                if(data.necro_seg(features.locations(c))==1)
+                    features.labels(c)=3;
+                elseif(data.tumor_seg(features.locations(c))==1)
+                    features.labels(c)=1;
+                elseif(data.vasc_seg(features.locations(c))==1)
+                    features.labels(c)=2;
+                end
+            end
+        %     features = generate_feature_array(data); %returns only labels
+
+            save_wrapper(features, [working_dir,'/init_features_',patients{i},'.mat']);
+        end
+    end
 end

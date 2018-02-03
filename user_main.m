@@ -7,7 +7,6 @@ function masks = user_main(skipgui)
 
     addpath(genpath('subroutines'));
 
-    %% Take user input
     filename_map = containers.Map;
     filename_map('pre') = '**/pre_reg.nii*';
     filename_map('art') = '**/20s.nii*';
@@ -19,6 +18,7 @@ function masks = user_main(skipgui)
     filename_map('vasc_seg') = '**/*vessel*.ids';
     filename_map('necro_seg') = '**/*nec*.ids';
 
+    %% Take user input
     if ~skipgui
         uiwait(msgbox(['Using this model requires that it has been previously '...
             'trained. The weights should be saved as "tree_x.mat". '...
@@ -66,7 +66,7 @@ function masks = user_main(skipgui)
 
     if ~skipgui
         prompt = {'Save features at the end of the run?',...
-                'Do images have separate T1-w bias field corrections saved as a nifti?'};
+                'Is there a separate T1-w bias field correction?'};
         dlg_title = 'Run options';
         num_lines = 1;
         defaultans = {'no','yes'};
@@ -76,42 +76,37 @@ function masks = user_main(skipgui)
             return
         end
     else
-        answer = {'yes','yes'};
+        answer = {'yes','no'};
     end
 
     save_features = strcmp(answer{1},'yes') == 1;
-    use_bias_field = strcmp(answer{2},'yes') == 1;
+    use_bias_field = strcmp(answer{2},'no') == 1;
 
 
     %% Run algorithm
     % Collect images and whole liver masks
-    data = acquire_data_single_pat(data_dir, train_bool, use_bias_field);
+    % Collect images and whole liver masks
+    acquire_data(patients, data_dir, working_dir, train_bool, use_bias_field, filename_map);
+    toc
 
-    if true%exist([working_dir,'/init_features_1.mat'],'file') == 0
-        % Initialize labels and locations
-        f = struct;
-        f.locations = find(data.tight_liver_mask);
-        f.labels = zeros(length(f.locations),1);
-        save([working_dir,'/init_features_1.mat'], 'f');
-
-        % Compute image features for the entire image
-        dcell = {data};
-        normalize_data(dcell, working_dir);
-        clear dcell;
-    end
+    % Initialize labels and locations, and compute image features
+    normalize_data(patients, working_dir);
+    toc
 
     % Separate features based on label
-    % compute_features(patients, working_dir);
-    data = load([working_dir,'/norm_data_1.mat']);
-    data = data.data_i;
-    f = compute_features_single(data, f);
-    save([working_dir,'/features_1.mat'],'f');
+    compute_features(patients, working_dir);
+    toc
 
-    % Save intensities in a separate bin file
-    if exist([working_dir,'/intensities_1.bin'],'file') == 0
-        intensities_bin({''}, working_dir);
+    % Generate training data
+    if exist([working_dir,'/train.mat'],'file') == 0
+        generate_training_data(patients, working_dir);
+        toc
     end
 
+    % Save intensities in a separate bin file
+    intensities_bin(patients, working_dir);
+    toc
+    
     % Train random forest model
     masks = tissue_classification({''}, model_dir, working_dir, working_dir, train_bool, data_dir, out_dir);
 

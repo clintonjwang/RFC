@@ -27,8 +27,7 @@ num_context_features = (sa^3) * (num_classes - 1)... %structured context feature
          + ((num_classes-1)*num_bins*length(M)); %plus spherical context features 
 
 for i=1:num_patients
-    data{i} = load([working_dir,'/norm_data_',patients{i},'.mat']);
-    data{i} = data{i}.data_i;
+    data{i} = load_wrapper([working_dir,'/norm_data_',patients{i},'.mat']);
 end
 
 %loop through rounds of auto-context
@@ -49,8 +48,7 @@ for r=1:RAC
         disp(['Fitting random forest (round ', num2str(r), ' of auto-context)...']);
 
         tic
-        train = load([working_dir,'/train.mat']);
-        train = train.train;
+        train = load_wrapper([working_dir,'/train.mat']);
         %number of training data points 
         num_data_points = size(train.data,1);
 
@@ -70,7 +68,7 @@ for r=1:RAC
                 'SplitCriterion','deviance','Surrogate','on')); %opt
         end
         
-        save([model_dir,'/tree_',num2str(r),'.mat'],'C');
+        save_wrapper(C, [model_dir,'/tree_',num2str(r),'.mat']);
         clear train_data_ac;
         toc
         
@@ -78,20 +76,16 @@ for r=1:RAC
 %         fileID = fopen([model_dir,'/tree_',num2str(r),'.mat'],'r');
 %         C = fread(fileID,[numel(f.labels), num_context_features],'double');
 %         fclose(fileID);
-        load([model_dir,'/tree_',num2str(r),'.mat']);
+        C = load_wrapper([model_dir,'/tree_',num2str(r),'.mat']);
     end
     
     disp('Computing classification...');
     
     tic
     %compute label probability maps for each tissue class and patient 
-    for i=1:num_patients
-        tmp=load([working_dir,'/small_features_',patients{i},'.mat']);
-        features{i}=tmp.f;
-    end
     parfor td=1:num_patients
         %load corresponding patient
-        f = features{td};
+        f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
         if train_bool
             disp(['Computing classification for patient...',patients{td}]);
         end
@@ -157,10 +151,10 @@ for r=1:RAC
 
     %clear the previously trained random forest 
     clear RF
-    load([working_dir,'/locations.mat']);
+    locations = load_wrapper([working_dir,'/locations.mat']);
     
     %compute the auto-context features, unless it is the final iteration
-    train_indices = 1:num_patients;
+%     train_indices = 1:num_patients;
     if train_bool
         if r~=RAC
             train_data_ac = extract_autocontext_features(...
@@ -175,8 +169,7 @@ for r=1:RAC
                 sl_spherical,num_bins,scratch_dir);
         else
             parfor td=1:num_patients
-                f = features{td};
-%                 load([working_dir,'/small_features_',num2str(td),'.mat']);
+                f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
 
                 scores = classification{td};
                 pred_labels = (scores(:,2)>scores(:,1)) .* (scores(:,2)>scores(:,3)).* (scores(:,2)>scores(:,4)) + ...

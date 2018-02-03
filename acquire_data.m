@@ -5,14 +5,12 @@ function acquire_data(patients, train_dir, working_dir, train_bool, use_bias_fie
 % set train_bool to true if training
 
     disp('Acquiring patient data...');
-    %parfor i=1:length(patients)
-    for i=1:length(patients)
-        pat = patients{i};
-    %     if exist([working_dir,'/data_',num2str(i),'.mat'],'file') == 0
-        data_i = acquire_data_single_pat([train_dir,'/',pat], train_bool, filename_map);
-        save([working_dir,'/data_',pat,'.mat'],'data_i')
-        disp([pat, ' acquired!']);
-    %     end
+    parfor i=1:length(patients)
+        if ~exist([working_dir,'/data_',patients{i},'.mat'],'file')
+            pat = patients{i};
+            data_i = acquire_data_single_pat([train_dir,'/',pat], train_bool, filename_map);
+            save_wrapper(data_i, [working_dir,'/data_',pat,'.mat'])
+        end
     end
 
 end
@@ -157,14 +155,13 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     end
     
     %% Cleanup
-    %get contours for later visualization
-%     data.liver_contour = get_contour(data.liver_mask);
-%     data.tight_liver_contour = get_contour(data.tight_liver_mask);
-%     if train_bool
-%         data.tumor_contour = get_contour(data.tumor_mask);
-%         data.vessel_contour = get_contour(data.vessel_mask);
-%         data.necrosis_contour = get_contour(data.necrosis_mask);
-%     end
+    data.liver_contour = get_contour(data.liver_seg);
+    data.tight_liver_contour = get_contour(data.tight_liver_mask);
+    if train_bool
+        data.tumor_contour = get_contour(data.tumor_seg);
+        data.vasc_contour = get_contour(data.vasc_seg);
+        data.necro_contour = get_contour(data.necro_seg);
+    end
 
     [~, ~, ~] = rmdir([data_dir,'/temp'], 's');
 end
