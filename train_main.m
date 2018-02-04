@@ -5,12 +5,12 @@ function train_main(skipgui)
         skipgui = true;
     end
 
-    addpath(genpath('subroutines'));
+    addpath(genpath('../subroutines'));
     
     train_bool = true;
     model_dir = fullfile(pwd(),'models');
     mask_dir = fullfile(pwd(),'masks');
-    working_dir = fullfile(pwd(),'working_train');
+    working_dir = 'D:/working_train';
 
     filename_map = containers.Map;
     filename_map('pre') = '**/pre_reg.nii*';
@@ -120,7 +120,7 @@ function train_main(skipgui)
     toc
 
     % Generate training data
-    if exist([working_dir,'/train.mat'],'file') == 0
+    if exist([working_dir,'/voxel_data.mat'],'file') == 0
         generate_training_data(patients, working_dir);
         toc
     end

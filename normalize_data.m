@@ -228,7 +228,6 @@ function init_features( patients, working_dir )
                     features.labels(c)=2;
                 end
             end
-        %     features = generate_feature_array(data); %returns only labels
 
             save_wrapper(features, [working_dir,'/init_features_',patients{i},'.mat']);
         end

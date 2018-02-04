@@ -19,7 +19,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     min_leaf_size = config.min_leaf_size; %random forest parameter: mininum leaf size, 50 by default
 
     num_patients = length(patients); %total number of patients
-    num_classes=4; %number of tissue classes
+    num_classes = 4; %number of tissue classes
 
     %initialize global variables
     opt = statset('UseParallel',true); %random forest parameter: train trees in parallel 
@@ -30,41 +30,12 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
 
     train = load_wrapper([working_dir,'/train.mat']);
     
-    start_r = 1;
-    if start_r ~= 1
-        for td=1:num_patients
-            T{td}=[];
-            acf{td}=[];
+    start_r = 2;
+    for td=1:num_patients
+        if ~exist([working_dir, '/context_',patients{td},'_1.bin'], 'file')
+            start_r = 1;
+            break
         end
-
-        locations = load_wrapper([working_dir,'/locations.mat']);
-
-        %loop through patients
-        parfor td=1:num_patients
-            if exist([working_dir, '/context_',patients{td},'_',num2str(start_r-1),'.bin'], 'file')
-                f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
-                fileID = fopen([working_dir, '/context_',patients{td},'_',num2str(start_r-1),'.bin'],'r');
-                auto_context_features = fread(fileID,[numel(f.labels),...
-                    num_context_features],'double');
-                fclose(fileID);
-
-                if train_bool
-                    T{td} = find(patients==td);
-                    acf{td} = auto_context_features(train_locs(T{td}),:);
-                end
-            end
-        end
-
-        if train_bool
-            %add auto-context features to training data
-            temp=zeros(num_train_points, num_context_features);
-            for td=1:num_patients
-                temp(T{td},:) = acf{td};
-            end
-
-            acf = temp;
-        end
-        train_data_ac = [train.data, acf];
     end
     
     %loop through rounds of auto-context
@@ -85,16 +56,25 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             clear tmp
             
             tic
-            %number of training data points 
-            num_data_points = size(train.data,1);
-
             %train random forest
             for t=1:ntrees
                 %bagging training data 
-                bag = randi(num_data_points,[1,num_data_points]);
+                num_data_points = round(size(train.data,1) / 3);
+                bag = randi(size(train.data,1),[1,num_data_points]);
                 if(r==1)
                     tree_data=train.data(bag,:);
                 else
+                    indices = unique(bag);
+                    for i=1:length(indices)
+                        train_data_subset{i} = train.data(indices(i),:);
+                        acf{i} = load_context(patients{indices(i)}, r, num_context_features, working_dir);
+                    end
+                    if ~exist('train_data_ac', 'var')
+                        parfor td=1:num_patients
+                            acf{td} = load_context(patients{td}, r, num_context_features, working_dir);
+                        end
+                        tree_data = [train_data_subset, acf];
+                    end
                     tree_data=train_data_ac(bag,:);
                 end
                 labs=train.train_labels(bag,:);
@@ -112,7 +92,6 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
         end
 
         disp('Computing classification...');
-
         tic
         %compute label probability maps for each tissue class and patient 
         parfor td=1:num_patients
@@ -137,11 +116,11 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             %for subsequent rounds, incorporate auto-context features 
             else
                 fileID = fopen([working_dir, '/context_',patients{td},'_',num2str(r-1),'.bin'],'r');
-                auto_context_features = fread(fileID,[numel(f.labels),...
+                auto_context_f = fread(fileID,[numel(f.labels),...
                     num_context_features],'double');
                 fclose(fileID);
                 for t=1:ntrees
-                    [~,scores] = predict(C{t},[intensities,auto_context_features]);
+                    [~,scores] = predict(C{t},[intensities,auto_context_f]);
                     classification{td} = classification{td} + scores;
                 end
             end
@@ -151,7 +130,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
         clear RF
 
         %compute the auto-context features, unless it is the final iteration
-        if r~=RAC
+        if r<RAC
             if train_bool
                 train_data_ac = extract_autocontext_features(...
                     classification,sl,sa, patients,...
@@ -163,24 +142,6 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
                     classification,sl,sa,patients,[],[],...
                     sl_spherical,num_bins,working_dir,r, train_bool);
             end
-        end
-        
-        if train_bool
-%             parfor td=1:num_patients
-%                 if exist([working_dir, '/context_',patients{td},'_',num2str(start_r-1),'.bin'], 'file')
-%                     f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
-%                     fileID = fopen([working_dir, '/context_',patients{td},'_',num2str(start_r-1),'.bin'],'r');
-%                     auto_context_features = fread(fileID,[numel(f.labels),...
-%                         num_context_features],'double');
-%                     fclose(fileID);
-% 
-%                     if train_bool
-%                         T{td} = find(patients==td);
-%                         acf{td} = auto_context_features(train_locs(T{td}),:);
-%                     end
-%                 end
-%             end
-%             train_data_ac = [train.data, train_data_ac];
         end
     end
     
@@ -203,7 +164,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
 
             pad_img = padarray(pred_img, data.iso_full_size - data.cutoffs_high, 0, 'post');
             pad_img = padarray(pad_img, data.cutoffs_low - 1, 0, 'pre');
-            rescaled_img = round(imresize3(pad_img, data{1}.orig_dims));
+            rescaled_img = round(imresize3(pad_img, data.orig_dims));
     %                 rescaled_img = pred_img;
             nec_mask = rescaled_img == 2;
             vasc_mask = rescaled_img == 3;
@@ -269,7 +230,7 @@ end
 %function to compute auto-context features 
 function acf = extract_autocontext_features(classification,...
     sl, sa, patients, train_locs, num_context_features,...
-    sl_spherical,num_bins,working_dir, tree_num, train_bool)
+    sl_spherical,num_bins,working_dir, r, train_bool)
 
     disp('Extracting auto-context features...')
 
@@ -277,17 +238,16 @@ function acf = extract_autocontext_features(classification,...
     %initialize variables
     num_patients = length(classification);
     num_classes = 4;
-    num_train_points = length(patients);
-
-    for td=1:num_patients
-        T{td}=[];
-        acf{td}=[];
-    end
-    
     locations = load_wrapper([working_dir,'/locations.mat']);
     
     %loop through patients
+    acf = cell(1,num_patients);
     parfor td=1:num_patients
+        if exist([working_dir, '/context_',patients{td},'_',num2str(r),'.bin'], 'file')
+            acf{td} = load_context(patients{td}, r, num_context_features, working_dir);
+            continue
+        end
+            
         %load patient features
         f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
         data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
@@ -295,28 +255,20 @@ function acf = extract_autocontext_features(classification,...
         %compute label context features
         maps = generate_maps_dummy(classification{td},f.sz,locations{td},num_classes);
 
-        auto_context_features = [compute_patches(maps,locations{td},sl,data,sa),...
+        acf{td} = [compute_patches(maps,locations{td},sl,data,sa),...
             compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
 
         %save auto-context features in binary file 
-        save_dummy_binary(auto_context_features, [working_dir, '/context_',patients{td},'_',num2str(tree_num),'.bin']);
-
-        if train_bool
-            T{td} = find(patients==td);
-            acf{td} = auto_context_features(train_locs(T{td}),:);
-        end
-    end
-
-    if train_bool
-        %add auto-context features to training data
-        temp=zeros(num_train_points, num_context_features);
-        for td=1:num_patients
-            temp(T{td},:) = acf{td};
-        end
-
-        acf = temp;
+        save_dummy_binary(acf{td}, [working_dir, '/context_',patients{td},'_',num2str(r),'.bin']);
     end
     toc
+end
+
+function acf = load_context(patient, r, num_context_features, working_dir)
+    f = load_wrapper([working_dir,'/small_features_',patient,'.mat']);
+    fileID = fopen([working_dir, '/context_',patient,'_',num2str(r),'.bin'],'r');
+    acf = fread(fileID,[numel(f.labels), num_context_features],'double');
+    fclose(fileID);
 end
 
 %compute structured auto-context features 
@@ -428,4 +380,39 @@ end
 
 function DSC = compute_DSC(classification,lab)
     DSC=2*sum(classification.*lab)/(sum(classification)+sum(lab));
+end
+
+function M = generate_spherical_masks(sl)
+    A=zeros((2*sl)+1,(2*sl)+1,(2*sl)+1);
+    center=[sl+1,sl+1,sl+1]; 
+
+    for i=1:size(A,1)
+        for j=1:size(A,2)
+            for k=1:size(A,3)
+                A(i,j,k) = norm([i,j,k] - center);  
+            end
+        end
+    end
+
+    A=round(A); 
+    ind=1;
+    for r=1:sl
+        M{ind} = find(A==r);
+        ind=ind+1; 
+    end
+    return 
+end
+
+function maps = generate_maps_dummy(class,sz,locs,num_classes)
+    for c=2:num_classes
+        maps{c-1,1} = generate_classification_visualization(class(:,c),sz,locs);
+    end
+end
+
+function map = generate_classification_visualization(p,sz,locs) 
+    map=zeros*ones(sz);
+    for i=1:length(locs)
+        map(locs(i))=p(i); 
+    end
+    map(1,1,:) = ones(1,size(map,3));
 end

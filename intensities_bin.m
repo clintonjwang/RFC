@@ -1,9 +1,9 @@
 function intensities_bin(patients, working_dir)
-    disp('Saving intensities as bin files...');
-    
     if exist([working_dir,'/locations.mat'], 'file')
         return
     end
+    
+    disp('Saving intensities as bin files...');
     locations = cell(1,length(patients));
     parfor i = 1:length(patients)
         f = load_wrapper([working_dir,'/features_',patients{i},'.mat']);
