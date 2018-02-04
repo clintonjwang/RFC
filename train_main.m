@@ -8,8 +8,9 @@ function train_main(skipgui)
     addpath(genpath('subroutines'));
     
     train_bool = true;
-    model_dir = 'models';
-    working_dir = 'working_train';
+    model_dir = fullfile(pwd(),'models');
+    mask_dir = fullfile(pwd(),'masks');
+    working_dir = fullfile(pwd(),'working_train');
 
     filename_map = containers.Map;
     filename_map('pre') = '**/pre_reg.nii*';
@@ -95,6 +96,7 @@ function train_main(skipgui)
 
 
     [~, ~, ~] = mkdir(model_dir);
+    [~, ~, ~] = mkdir(mask_dir);
     [~, ~, ~] = mkdir(working_dir);
 
     patients = dir(train_dir);
@@ -128,7 +130,7 @@ function train_main(skipgui)
     toc
 
     % Train random forest model
-    tissue_classification(patients, model_dir, working_dir, working_dir, train_bool, train_dir, model_dir, config);
+    tissue_classification(patients, model_dir, working_dir, train_bool, train_dir, mask_dir, config);
     toc
 
     if ~save_features

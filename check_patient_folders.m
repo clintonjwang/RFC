@@ -11,7 +11,7 @@ function check_patient_folders( train_dir )
     filename_map('liver_seg') = '**/*liver.ids';
     filename_map('tumor_seg') = '**/*tumor*.ids';
     filename_map('vasc_seg') = '**/*vessel*.ids';
-%     filename_map('necro_seg') = '**/*nec*.ids';
+    filename_map('necro_seg') = '**/*nec*.ids';
 
     patients = dir(train_dir);
     filenames = {patients.name};

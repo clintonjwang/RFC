@@ -19,50 +19,50 @@ function compute_features_single(data, f, save_path)
 
     f.sz = size(data.tight_liver_mask);
 
-    % disp('Extracting voxel-wise intensities...'); %very fast
+    % Extracting voxel-wise intensities
     f.intensities = zeros(length(f.locations),...
         num_intensity_maps);
     for j=1:num_intensity_maps
         f.intensities(:,j) = data.p_im{j}(f.locations); 
     end
 
-    % disp('Extracting mode-map intensities...'); %very fast
+    % Extracting mode-map intensities
     f.mode_intensities = zeros(length(f.locations),...
         num_mode_maps);
     for j=1:num_mode_maps
         f.mode_intensities(:,j) = data.mode{j}(f.locations);
     end
 
-    % disp('Extracting Frangi intensities...');  %very fast
+    % Extracting Frangi intensities
     f.frangi = zeros(length(f.locations),...
         num_frangi_maps);
     for j=1:num_frangi_maps
         f.frangi(:,j) = data.frangi{j}(f.locations); 
     end
 
-    % disp('Extracting t2 intensities...'); %very fast
+    % Extracting t2 intensities
     f.t2 = zeros(length(f.locations),1);
     f.t2(:,1) = data.t2(f.locations);
 
-    % disp('Extracting surface distances...'); %very fast
+    % Extracting surface distances
     f.intensities = [f.intensities,...
         compute_surface_distance(data,f.locations)];
 
-    % disp('Extracting gradient intensities...');  %very fast
+    % Extracting gradient intensities
     f.gradient = zeros(length(f.locations),...
         num_grad_maps);
     for j=1:num_grad_maps
         f.gradient(:,j) = data.grad{j}(f.locations);
     end
 
-    % disp('Extracting std filter intensities...'); %very fast
+    % Extracting std filter intensities
     f.sf = zeros(length(f.locations),...
         num_sf_maps);
     for j=1:num_sf_maps
         f.sf(:,j) = data.sf{j}(f.locations);
     end
 
-    % disp('Extracting Haralick feature intensities...'); %very fast
+    % Extracting Haralick feature intensities
     f.haralick = zeros(length(f.locations),num_intensity_maps*...
         num_haralick);
 
@@ -100,7 +100,7 @@ function compute_features_single(data, f, save_path)
     f=rmfield(f,'t2');
 
 
-    % disp('Appending contextual features'); %moderately fast
+    % Appending contextual features
     f = append_context_features(f,data);
 
     f.auto_context_features=[]; 

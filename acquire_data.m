@@ -76,7 +76,7 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     end
     
     %% Make isotropic niis
-    mkdir([data_dir,'/temp']);
+    [~,~,~] = mkdir([data_dir,'/temp']);
     
     % get pixel dims from arterial phase nifti
     temp = load_nii(niiname_map('art'));
@@ -121,11 +121,9 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     data.resolution(3) = data.art.hdr.dime.pixdim(4);
     data.art = double(flip_image(data.art.img));
 
-    %get T1 image dimensions
-    [N1,N2,N3] = size(data.art);
-
     %% Crop image to liver mask
     %shrink the masks to proper size if necessary
+    [N1,N2,N3] = size(data.art);
     data = shrink_masks(data, N1, N2, N3, train_bool);
 
     %compute tightened liver mask

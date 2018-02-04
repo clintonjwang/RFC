@@ -3,8 +3,19 @@ function normalize_data(patients, working_dir)
     % data should contain all patients
     % data gains p_im, which captures pre, art, pv intensities and their diffs
     % data gains mode, grad, sf, frangi, and glcm (Haralick)
-
+        
     disp('Normalizing data...');
+    
+    skip = true;
+    for i=1:length(patients)
+        if ~exist([working_dir,'/norm_data_',patients{i},'.mat'],'file')
+            skip = false;
+            break
+        end
+    end
+    if skip
+        return
+    end
 
     %parameters for Frangi vessel filter computation 
     Options1.FrangiScaleRange=[1,10];
@@ -22,9 +33,12 @@ function normalize_data(patients, working_dir)
     
     %loop through patients
     parfor i=1:length(patients)
-        if exist([working_dir,'/norm_data_',patients{i},'.mat'],'file') == 0
+        if ~exist([working_dir,'/norm_data_',patients{i},'.mat'],'file')
             data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
             
+            if ~isfield(data, 'pre')
+                continue
+            end
             %bias field correction
             if isfield(data, 't1_bfc')
                 data.pre = data.pre./data.t1_bfc;
@@ -199,7 +213,7 @@ function init_features( patients, working_dir )
 
     % Generating feature cell arrays
     parfor i=1:length(patients)
-        if exist([working_dir,'/init_features_',patients{i},'.mat'],'file') == 0
+        if ~exist([working_dir,'/init_features_',patients{i},'.mat'],'file')
             data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
             features = struct;
             features.locations = find(data.tight_liver_mask);

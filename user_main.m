@@ -69,7 +69,7 @@ function masks = user_main(skipgui)
                 'Is there a separate T1-w bias field correction?'};
         dlg_title = 'Run options';
         num_lines = 1;
-        defaultans = {'no','yes'};
+        defaultans = {'no','no'};
         answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
 
         if ~iscell(answer)
