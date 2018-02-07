@@ -94,7 +94,6 @@ function train_main(skipgui)
     config.sa = str2double(answer{6});
     config.min_leaf_size = str2double(answer{7});
 
-
     [~, ~, ~] = mkdir(model_dir);
     [~, ~, ~] = mkdir(mask_dir);
     [~, ~, ~] = mkdir(working_dir);
@@ -103,7 +102,6 @@ function train_main(skipgui)
     filenames = {patients.name};
     patients = filenames([patients.isdir]);
     patients = patients(3:end);
-    % num_patients = length(patients);
 
     %% Run algorithm
     tic

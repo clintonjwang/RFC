@@ -3,11 +3,10 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
 %   Detailed explanation goes here
     
     %% Parameters
+    disp('Initializing random forest...');
     if train_bool
-        disp('Training random forest...');
         save([model_dir, '/tree_config.mat'], 'config');
     else
-        disp('Traversing random forest...');
         load([model_dir, '/tree_config.mat']);
     end
 
@@ -18,14 +17,14 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     num_bins = config.num_bins; %number of histogram bins for spherical histogram context features, 5 by default
     sa=config.sa; %number of auto-context features to sample per dimension, 6 by default
     min_leaf_size = config.min_leaf_size; %random forest parameter: mininum leaf size, 50 by default
-    T_par = 200000; %number of training samples from parenchyma voxels
-    T_other = 50000; %number of training samples from each non-parenchyma class
+    T_par = 100000; %200000 %number of training samples from parenchyma voxels
+    T_other = 30000; %50000 %number of training samples from each non-parenchyma class
     
     num_patients = length(patients); %total number of patients
     num_classes = 4; %number of tissue classes
 
     %initialize global variables
-    opt = statset('UseParallel',true); %random forest parameter: train trees in parallel 
+%     opt = statset('UseParallel',true); %random forest parameter: train trees in parallel 
 %     parpool(4); %number of cores to distribute processing over
     M = generate_spherical_masks(sl_spherical); %generate spherical masks
     num_context_features = (sa^3) * (num_classes - 1)... %structured context features
@@ -36,32 +35,36 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
 
     voxel_data = load_wrapper([working_dir,'/voxel_data.mat']);
     
-    start_r = 2;
+    start_r = 3;
     for td=1:num_patients
-        if ~exist([working_dir, '/context_',patients{td},'_1.bin'], 'file')
+        if ~exist([working_dir, '/context_',patients{td},'_1.mat'], 'file')
             start_r = 1;
             break
+        end
+    end
+    if start_r > 2
+        for td=1:num_patients
+            if ~exist([working_dir, '/context_',patients{td},'_2.mat'], 'file')
+                start_r = 2;
+                break
+            end
         end
     end
     
     %% Loop through rounds of auto-context
     for r=start_r:RAC
-        %clear trees from previous round of label-context
-        clear C
-        
         %% Train random forest
         if train_bool && ~exist([model_dir,'/tree_',num2str(r),'.mat'], 'file')
-            disp(['Fitting random forest (round ', num2str(r), ' of ', num2str(RAC), ')...']);
-
+            disp('Creating training data samples for random forest...');
             if(r==1)
                 num_predictors = num_intensity_features;
             else
                 num_predictors = num_intensity_features + num_context_features;
             end
-            
             voxel_data_subset = get_data_subset(T_par, T_other, patients,...
-                        voxel_data, r);
+                        voxel_data, r, num_intensity_features, num_context_features, working_dir);
             
+            disp(['Fitting random forest (round ', num2str(r), ' of ', num2str(RAC), ')...']);
             for t=1:ntrees
                 %bag training data
                 num_data_points = round(length(voxel_data_subset.labels) / 3);
@@ -77,52 +80,59 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
                     'NumVariablesToSample',sqrt(num_predictors),...
                     'SplitCriterion','deviance','Surrogate','on')); %opt
             end
-
+            clear voxel_data_subset;
             save_wrapper(C, [model_dir,'/tree_',num2str(r),'.mat']);
-            clear train_data_ac;
             toc
         else
+            disp(['Loading pre-trained forest for round ', num2str(r), '...']);
             C = load_wrapper([model_dir,'/tree_',num2str(r),'.mat']);
         end
         
-        %% Perform classification - compute label probability maps for each tissue class and patient 
-        disp('Computing classification...');
-        parfor td=1:num_patients
+        %% Classification - compute label probability maps for each tissue class and patient
+        disp('Computing tissue classification...');
+        locations = load_wrapper([working_dir,'/locations.mat']);
+        for td = 1:num_patients %parfor - requires ~15GB RAM to parallelize
+            disp(['	', num2str(td), ' of ', num2str(num_patients), '...']);
             f = load_wrapper([working_dir,'/features_',patients{td},'.mat']);
-            classification{td}=zeros(numel(f.labels),num_classes);
-
-            %if first round of classification: appearance features only 
-            if r==1
+            cls = zeros(numel(f.labels),num_classes);
+            if r==1 %if first round of classification: appearance features only 
                 for t=1:ntrees
                     [~,scores] = predict(C{t}, f.intensities);
-                    classification{td} = classification{td} + scores;
+                    cls = cls + scores;
                 end
-            %for subsequent rounds, incorporate auto-context features 
-            else
-                fileID = fopen([working_dir, '/context_',patients{td},'_',num2str(r-1),'.bin'],'r');
-                auto_context_f = fread(fileID,[numel(f.labels),...
-                    num_context_features],'double');
-                fclose(fileID);
+            else %for subsequent rounds, incorporate auto-context features 
+                acf = load_context(patients{td}, r-1, num_context_features, working_dir);
                 for t=1:ntrees
-                    [~,scores] = predict(C{t},[f.intensities, auto_context_f]);
-                    classification{td} = classification{td} + scores;
+                    [~,scores] = predict(C{t},[f.intensities, acf]);
+                    cls = cls + scores;
                 end
             end
-            classification{td} = classification{td}./ntrees;
+%             classification{td} = cls./ntrees;
+            cls = cls./ntrees;
+            
+            if r<RAC
+                data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
+                maps = generate_maps_dummy(cls,f.sz,locations{td},num_classes);
+                acf = [compute_patches(maps,locations{td},sl,data,sa),...
+                    compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
+                save_wrapper(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.mat']);
+            else
+                classification{td} = cls;
+            end
         end
         toc
-        clear RF
+        clear C f acf cls locations
 
         % Compute auto-context features, unless it is the final iteration
-        if r<RAC
-            compute_autocontext_features(...
-                classification,sl,sa, patients,...
-                sl_spherical,num_bins,working_dir,r);
-        end
+%         if r<RAC
+%             compute_autocontext_features(classification, sl, sa, patients,...
+%                 sl_spherical,num_bins,working_dir,r);
+%         end
     end
     
     %% Produce masks
     if ~train_bool
+        disp('Creating masks...');
         parfor td=1:num_patients
             f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
             data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
@@ -141,7 +151,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             pad_img = padarray(pred_img, data.iso_full_size - data.cutoffs_high, 0, 'post');
             pad_img = padarray(pad_img, data.cutoffs_low - 1, 0, 'pre');
             rescaled_img = round(imresize3(pad_img, data.orig_dims));
-    %                 rescaled_img = pred_img;
+%                 rescaled_img = pred_img;
             nec_mask = rescaled_img == 2;
             vasc_mask = rescaled_img == 3;
             viatumor_mask = rescaled_img == 4;
@@ -159,21 +169,36 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     end
 end
 
-function voxel_data_subset = get_data_subset(T_par, T_other, patients, voxel_data, r)
+function voxel_data_subset = get_data_subset(T_par, T_other, patients, voxel_data, r, nf, nacf, working_dir)
     %get subset of voxel features for this round
-    p = randsample(length(voxel_data{1}.locs),T_par);
-    normal_locs = voxel_data{1}.locs(p);
-    normal_patients = voxel_data{1}.patients(p);
+    if T_par < length(voxel_data{1}.locs)
+        p = randsample(length(voxel_data{1}.locs),T_par);
+        normal_locs = voxel_data{1}.locs(p);
+        normal_patients = voxel_data{1}.patients(p);
+    else
+        normal_locs = voxel_data{1}.locs;
+        normal_patients = voxel_data{1}.patients;
+    end
 
-    p = randsample(length(voxel_data{2}.locs),T_other);
-    cancer_locs = voxel_data{2}.locs(p);
-    cancer_patients = voxel_data{2}.patients(p);
+    if T_other < length(voxel_data{2}.locs)
+        p = randsample(length(voxel_data{2}.locs),T_other);
+        cancer_locs = voxel_data{2}.locs(p);
+        cancer_patients = voxel_data{2}.patients(p);
+    else
+        cancer_locs = voxel_data{2}.locs;
+        cancer_patients = voxel_data{2}.patients;
+    end
 
-    p = randsample(length(voxel_data{3}.locs),T_other);
-    vessel_locs = voxel_data{3}.locs(p);
-    vessel_patients = voxel_data{3}.patients(p);
+    if T_other < length(voxel_data{3}.locs)
+        p = randsample(length(voxel_data{3}.locs),T_other);
+        vessel_locs = voxel_data{3}.locs(p);
+        vessel_patients = voxel_data{3}.patients(p);
+    else
+        vessel_locs = voxel_data{3}.locs;
+        vessel_patients = voxel_data{3}.patients;
+    end
 
-    if T_other > length(voxel_data{4}.locs)
+    if T_other < length(voxel_data{4}.locs)
         p = randsample(length(voxel_data{4}.locs),T_other);
         necrosis_locs = voxel_data{4}.locs(p);
         necrosis_patients = voxel_data{4}.patients(p);
@@ -182,7 +207,8 @@ function voxel_data_subset = get_data_subset(T_par, T_other, patients, voxel_dat
         necrosis_patients = voxel_data{4}.patients;
     end
 
-    voxel_data_subset.labels = uint8([0*ones(T_par,1);1*ones(T_other,1);2*ones(T_other,1);3*ones(length(necrosis_locs),1)]);
+    voxel_data_subset.labels = uint8([0*ones(length(normal_locs),1);...
+        1*ones(length(cancer_locs),1);2*ones(length(vessel_locs),1);3*ones(length(necrosis_locs),1)]);
     voxel_data_subset.patients = [normal_patients;cancer_patients;vessel_patients;necrosis_patients];
     voxel_data_subset.locs = [normal_locs;cancer_locs;vessel_locs;necrosis_locs];
     voxel_data_subset.features = zeros(length(voxel_data_subset.labels),nf);
@@ -191,7 +217,7 @@ function voxel_data_subset = get_data_subset(T_par, T_other, patients, voxel_dat
     end
     
     for i=1:length(patients)
-        patient_locs = find(voxel_data.patients==i);
+        patient_locs = find(voxel_data_subset.patients==i);
 
         if(~isempty(patient_locs))
             f = load_wrapper([working_dir,'/features_',patients{i},'.mat']);
@@ -201,12 +227,17 @@ function voxel_data_subset = get_data_subset(T_par, T_other, patients, voxel_dat
             end
         
             if r > 1
-                acf = load_context(patients{i}, r-1, num_context_features, working_dir);
+                acf = load_context(patients{i}, r-1, nacf, working_dir);
                 for li=patient_locs'
+                    ind = voxel_data_subset.locs(li);
                     voxel_data_subset.acf(li,:) = acf(ind,:);
                 end
             end
         end
+    end
+    voxel_data_subset.features = single(voxel_data_subset.features);
+    if r > 1
+        voxel_data_subset.acf = single(voxel_data_subset.acf);
     end
     toc
 end
@@ -255,18 +286,31 @@ function [AUC,sensitivity,specificity,precision,accuracy,DSC]...
     end
 end
 
+function compute_acf(cls, td, sl, sa, patients, sl_spherical, num_bins, working_dir, r)
+    num_classes = 4;
+    locations = load_wrapper([working_dir,'/locations.mat']);
+    f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
+    data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
+
+    %compute label context features
+    maps = generate_maps_dummy(cls,f.sz,locations{td},num_classes);
+
+    acf = [compute_patches(maps,locations{td},sl,data,sa),...
+        compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
+
+    %save auto-context features in binary file 
+    save_wrapper(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.mat']);
+%         save_dummy_binary(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.bin']);
+end
+
 function compute_autocontext_features(classification,...
-    sl, sa, patients, sl_spherical,num_bins,working_dir, r)
+    sl, sa, patients, sl_spherical, num_bins, working_dir, r)
 
     disp('Extracting auto-context features...')
-    num_patients = length(classification);
     num_classes = 4;
     locations = load_wrapper([working_dir,'/locations.mat']);
     
-    parfor td=1:num_patients
-        if exist([working_dir, '/context_',patients{td},'_',num2str(r),'.bin'], 'file')
-            continue
-        end
+    parfor td=1:length(patients)
         f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
         data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
         
@@ -277,16 +321,18 @@ function compute_autocontext_features(classification,...
             compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
 
         %save auto-context features in binary file 
-        save_dummy_binary(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.bin']);
+        save_wrapper(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.mat']);
+%         save_dummy_binary(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.bin']);
     end
     toc
 end
 
 function acf = load_context(patient, r, num_context_features, working_dir)
-    f = load_wrapper([working_dir,'/small_features_',patient,'.mat']);
-    fileID = fopen([working_dir, '/context_',patient,'_',num2str(r),'.bin'],'r');
-    acf = fread(fileID,[numel(f.labels), num_context_features],'double');
-    fclose(fileID);
+    acf = load_wrapper([working_dir, '/context_',patient,'_',num2str(r),'.mat']);
+%     f = load_wrapper([working_dir,'/small_features_',patient,'.mat']);
+%     fileID = fopen([working_dir, '/context_',patient,'_',num2str(r),'.bin'],'r');
+%     acf = fread(fileID,[numel(f.labels), num_context_features],'double');
+%     fclose(fileID);
 end
 
 %compute structured auto-context features 
