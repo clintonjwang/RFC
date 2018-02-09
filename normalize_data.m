@@ -217,15 +217,17 @@ function init_features( patients, working_dir )
             data = load_wrapper([working_dir,'/data_',patients{i},'.mat']);
             features = struct;
             features.locations = find(data.tight_liver_mask);
-            features.labels = zeros(length(features.locations),1);
 
-            for c=1:length(features.locations)
-                if(data.necro_seg(features.locations(c))==1)
-                    features.labels(c)=3;
-                elseif(data.tumor_seg(features.locations(c))==1)
-                    features.labels(c)=1;
-                elseif(data.vasc_seg(features.locations(c))==1)
-                    features.labels(c)=2;
+            if isfield(data, 'necro_seg')
+                features.labels = zeros(length(features.locations),1);
+                for c=1:length(features.locations)
+                    if(data.necro_seg(features.locations(c))==1)
+                        features.labels(c)=3;
+                    elseif(data.tumor_seg(features.locations(c))==1)
+                        features.labels(c)=1;
+                    elseif(data.vasc_seg(features.locations(c))==1)
+                        features.labels(c)=2;
+                    end
                 end
             end
 

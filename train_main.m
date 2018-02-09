@@ -9,7 +9,6 @@ function train_main(skipgui)
     
     train_bool = true;
     model_dir = fullfile(pwd(),'models');
-    mask_dir = fullfile(pwd(),'masks');
     working_dir = 'D:/working_train';
 
     filename_map = containers.Map;
@@ -34,15 +33,16 @@ function train_main(skipgui)
             'representing the whole liver, as well as 4 binary masks '...
             'representing whole liver, tumor, necrosis, and vasculature '...
             'segmentations, each in ICS version 1 format.'...
-            'Once started, it may take over an hour per patient.'], 'Random Forest training', 'modal'));
+            'Once started, it may take over an hour per patient.'...
+            'WARNING: At its peak, it uses around 7GB of memory.'], 'Random Forest training', 'modal'));
     end
     
     % Set training directory
     if skipgui
-        train_dir = 'E:/4-segmented HCCs';
+        data_dir = 'E:/4-segmented HCCs';
     else
-        train_dir = uigetdir('', 'Select the folder containing all the training data.');
-        if train_dir == 0
+        data_dir = uigetdir('', 'Select the folder containing all the training data.');
+        if data_dir == 0
             return
         end
     end
@@ -95,10 +95,9 @@ function train_main(skipgui)
     config.min_leaf_size = str2double(answer{7});
 
     [~, ~, ~] = mkdir(model_dir);
-    [~, ~, ~] = mkdir(mask_dir);
     [~, ~, ~] = mkdir(working_dir);
 
-    patients = dir(train_dir);
+    patients = dir(data_dir);
     filenames = {patients.name};
     patients = filenames([patients.isdir]);
     patients = patients(3:end);
@@ -106,7 +105,7 @@ function train_main(skipgui)
     %% Run algorithm
     tic
     % Collect images and whole liver masks
-    acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field, filename_map);
+    acquire_data(patients, data_dir, working_dir, train_bool, use_bias_field, filename_map);
     toc
 
     % Initialize labels and locations, and compute image features
@@ -128,7 +127,7 @@ function train_main(skipgui)
     toc
 
     % Train random forest model
-    tissue_classification(patients, model_dir, working_dir, train_bool, train_dir, mask_dir, config);
+    tissue_classification(patients, model_dir, working_dir, train_bool, data_dir, [], config);
     toc
 
     if ~save_features

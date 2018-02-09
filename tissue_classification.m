@@ -32,8 +32,10 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     tmp = load_wrapper([working_dir,'/small_features_',patients{1},'.mat']);
     num_intensity_features = tmp.num_intensity_features;
     clear tmp
-
-    voxel_data = load_wrapper([working_dir,'/voxel_data.mat']);
+    
+    if train_bool
+        voxel_data = load_wrapper([working_dir,'/voxel_data.mat']);
+    end
     
     start_r = 3;
     for td=1:num_patients
@@ -161,10 +163,10 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
 
             [~,~,~]=mkdir(mask_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
-            write_ids_mask(vasc_mask, data_dir, mask_dir, 'vasculature_mask');
-            write_ids_mask(nec_mask, data_dir, mask_dir, 'necrosis_mask');
-            write_ids_mask(viatumor_mask, data_dir, mask_dir, 'viable_tumor_mask');
-            write_ids_mask(paren_mask, data_dir, mask_dir, 'parenchyma_mask');
+            write_ids_mask(vasc_mask, data_dir, mask_dir, [patients{td}, '_vasc_mask']);
+            write_ids_mask(nec_mask, data_dir, mask_dir, [patients{td}, '_necro_mask']);
+            write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
+            write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
         end
     end
 end

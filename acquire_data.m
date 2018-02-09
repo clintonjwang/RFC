@@ -1,4 +1,4 @@
-function acquire_data(patients, train_dir, working_dir, train_bool, use_bias_field, filename_map)
+function acquire_data(patients, data_dir, working_dir, train_bool, use_bias_field, filename_map)
 %ACQUIRE_DATA(patients, path, train_bool)
 % patients should be cell array of subfolder names each containing a patient
 % path is the path to the patient folders
@@ -8,7 +8,7 @@ function acquire_data(patients, train_dir, working_dir, train_bool, use_bias_fie
     parfor i=1:length(patients)
         if ~exist([working_dir,'/data_',patients{i},'.mat'],'file')
             pat = patients{i};
-            data_i = acquire_data_single_pat([train_dir,'/',pat], train_bool, filename_map);
+            data_i = acquire_data_single_pat([data_dir,'/',pat], train_bool, filename_map);
             save_wrapper(data_i, [working_dir,'/data_',pat,'.mat'])
         end
     end
