@@ -138,5 +138,4 @@ function train_main(skipgui)
         uiwait(msgbox(['Training complete. The tree weights have been saved to ',...
             model_dir, '.'], 'Random Forest training complete', 'modal'));
     end
-
 end

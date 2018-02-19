@@ -10,7 +10,7 @@ function user_main(skipgui)
     train_bool = false;
     model_dir = fullfile(pwd(),'models');
     mask_dir = fullfile(pwd(),'masks');
-    working_dir = 'D:/working_test';
+    working_dir = fullfile(pwd(),'working_test');
     
     filename_map = containers.Map;
     filename_map('pre') = '**/pre_reg.nii*';
@@ -39,7 +39,8 @@ function user_main(skipgui)
     if skipgui
         data_dir = 'E:/4-sampler';
     else
-        data_dir = uigetdir('', 'Select the folder containing the patient to segment.');
+        data_dir = uigetdir('', ['Select the folder containing all patients to segment. '...
+                '(Choose a parent folder containing each patient as a separate subfolder.)']);
         if data_dir == 0
             return
         end
@@ -52,22 +53,22 @@ function user_main(skipgui)
         end
     end
 
-    if skipgui
-        out_dir = fullfile(pwd(),'output_masks');
-        [~, ~, ~] = mkdir(out_dir);
-    else
-        out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
-        if out_dir == 0
-            return
-        end
-    end
+%     if skipgui
+%         out_dir = fullfile(pwd(),'output_masks');
+%         [~, ~, ~] = mkdir(out_dir);
+%     else
+%         out_dir = uigetdir('', 'Select a folder to output the binary masks to.');
+%         if out_dir == 0
+%             return
+%         end
+%     end
 
     if ~skipgui
-        prompt = {'Save features at the end of the run?',...
-                'Is there a separate T1-w bias field correction?'};
+        prompt = {'Save features at the end of the run?'};%,...
+                %'Is there a separate T1-w bias field correction?'};
         dlg_title = 'Run options';
         num_lines = 1;
-        defaultans = {'no','no'};
+        defaultans = {'no'};%,'no'};
         answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
 
         if ~iscell(answer)
@@ -78,7 +79,7 @@ function user_main(skipgui)
     end
 
     save_features = strcmp(answer{1},'yes') == 1;
-    use_bias_field = strcmp(answer{2},'no') == 1;
+    use_bias_field = false;%strcmp(answer{2},'no') == 1;
 
     [~, ~, ~] = mkdir(mask_dir);
     [~, ~, ~] = mkdir(working_dir);

@@ -135,7 +135,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     %% Produce masks
     if ~train_bool
         disp('Creating masks...');
-        parfor td=1:num_patients
+        for td=1:num_patients
             f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
             data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
 
@@ -154,19 +154,18 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             pad_img = padarray(pad_img, data.cutoffs_low - 1, 0, 'pre');
             rescaled_img = round(imresize3(pad_img, data.orig_dims));
 %                 rescaled_img = pred_img;
-            nec_mask = rescaled_img == 2;
-            vasc_mask = rescaled_img == 3;
-            viatumor_mask = rescaled_img == 4;
             paren_mask = rescaled_img == 1;
+            viatumor_mask = rescaled_img == 2;
+            vasc_mask = rescaled_img == 3;
+            nec_mask = rescaled_img == 4;
 
             masks{td} = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
-
             [~,~,~]=mkdir(mask_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
+            write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
+            write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
             write_ids_mask(vasc_mask, data_dir, mask_dir, [patients{td}, '_vasc_mask']);
             write_ids_mask(nec_mask, data_dir, mask_dir, [patients{td}, '_necro_mask']);
-            write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
-            write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
         end
     end
 end
