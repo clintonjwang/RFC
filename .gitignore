@@ -2,6 +2,7 @@
 *.prj
 *.txt
 *.mat
+*.log
 scratch*
 docs/*
 backup/*

@@ -16,7 +16,7 @@ function train_main(skipgui)
     filename_map('art') = '**/20s.nii*';
     filename_map('pv') = '**/70s_reg.nii*';
     filename_map('t2') = '**/t2_bfc_reg.nii*';
-    filename_map('t1-bfc') = 'nii_files/bias_field_isotropic.nii';
+    filename_map('t1_bfc') = 'nii_files/bias_field_isotropic.nii';
     filename_map('liver_seg') = '**/*liver.ids';
     filename_map('tumor_seg') = '**/*tumor*.ids';
     filename_map('vasc_seg') = '**/*vessel*.ids';
@@ -47,25 +47,26 @@ function train_main(skipgui)
         end
     end
 
+    defaultans = {'yes','yes'};
     if false%~skipgui
         prompt = {'Save features at the end of the run?',...
                 'Do images have separate T1-w bias field corrections saved as a nifti?'};
         dlg_title = 'Run options';
         num_lines = 1;
-        defaultans = {'no','yes'};
         answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
 
         if ~iscell(answer)
             return
         end
     else
-        answer = {'yes','yes'};
+        answer = defaultans;
     end
 
     save_features = strcmp(answer{1},'yes') == 1;
     use_bias_field = strcmp(answer{2},'yes') == 1;
 
     % Specify training options
+    defaultans = {'800','3','8','5','5','6','50'};
     if ~skipgui
         prompt = {'Enter number of decision trees in each random forest',...
                 'Enter number of classification rounds',...
@@ -76,14 +77,13 @@ function train_main(skipgui)
                 'Enter mininum number of leaves in decision trees'};
         dlg_title = 'Cascading random forest parameters';
         num_lines = 1;
-        defaultans = {'800','3','8','5','5','6','50'};
         answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
 
         if ~iscell(answer)
             return
         end
     else
-        answer = {'800','3','8','5','5','6','50'};
+        answer = defaultans;
     end
 
     config.ntrees = str2double(answer{1});

@@ -10,23 +10,21 @@ function liver_seg_launcher
     button = questdlg(['This program segments livers from T1/T2 MRIs '...
         'into viable tumor, necrosis, vasculature and parenchyma using '...
         'a cascading random forest model (Treilhard et al., MICCAI 2017). '...
-        'Are you retraining the model or using it?'], 'Liver Segmenter',...
-        'Retrain the model', 'Use the trained model',... %'Display mask',...
+        'Are you segmenting a batch of patients or a single patient?'], 'Liver Segmenter',...
+        'Batch', 'Single patient',... %'Display mask',...
         'Use the trained model');
-
+    
     switch button
-        case 'Use the trained model'
-            user_main(false);
-        case 'Retrain the model'
-            train_main(false);
+        case 'Batch'
+            user_main(button,false);
+        case 'Single patient'
+            user_main(button,false);
         case 'Display mask'
     %         disp('Not yet ready');
     %         mask_names = {'vasculature_mask', 'necrosis_mask', 'viable_tumor_mask'};
             mask_display_names = {'vasculature', 'necrosis', 'viable tumor'};
-            mask_names = {'essels', 'necro', 'whole'};
+            mask_names = {'Vessels', 'necro', 'whole'};
 
-    %         data_dir = 'E:/4-segmented lesions/ACcGBit/nii_files';
-    %         out_dir = 'E:/4-segmented lesions/ACcGBit/new segs';
             data_dir = uigetdir('', 'Select the folder containing the arterial image.');
             if data_dir == 0
                 return

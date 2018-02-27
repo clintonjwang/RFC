@@ -96,7 +96,7 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
         for td = 1:num_patients %parfor - requires ~15GB RAM to parallelize
             disp(['	', num2str(td), ' of ', num2str(num_patients), '...']);
             f = load_wrapper([working_dir,'/features_',patients{td},'.mat']);
-            cls = zeros(numel(f.labels),num_classes);
+            cls = zeros(numel(f.locations),num_classes);
             if r==1 %if first round of classification: appearance features only 
                 for t=1:ntrees
                     [~,scores] = predict(C{t}, f.intensities);
@@ -162,10 +162,12 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             masks{td} = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
             [~,~,~]=mkdir(mask_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
-            write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
-            write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
-            write_ids_mask(vasc_mask, data_dir, mask_dir, [patients{td}, '_vasc_mask']);
-            write_ids_mask(nec_mask, data_dir, mask_dir, [patients{td}, '_necro_mask']);
+            if exist('mask_dir','var') && ~isempty(mask_dir)
+                write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
+                write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
+                write_ids_mask(vasc_mask, data_dir, mask_dir, [patients{td}, '_vasc_mask']);
+                write_ids_mask(nec_mask, data_dir, mask_dir, [patients{td}, '_necro_mask']);
+            end
         end
     end
 end

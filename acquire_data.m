@@ -1,9 +1,9 @@
-function acquire_data(patients, data_dir, working_dir, train_bool, use_bias_field, filename_map)
+function acquire_data(patients, data_dir, working_dir, train_bool, filename_map)
 %ACQUIRE_DATA(patients, path, train_bool)
 % patients should be cell array of subfolder names each containing a patient
 % path is the path to the patient folders
 % set train_bool to true if training
-
+        
     disp('Acquiring patient data...');
     parfor i=1:length(patients)
         if ~exist([working_dir,'/data_',patients{i},'.mat'],'file')
@@ -12,7 +12,6 @@ function acquire_data(patients, data_dir, working_dir, train_bool, use_bias_fiel
             save_wrapper(data_i, [working_dir,'/data_',pat,'.mat'])
         end
     end
-
 end
 
 function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
@@ -38,8 +37,17 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     
     for k = {'pre','art','pv','t2'}
         k = char(k);
-        niiname_map(k) = try_find_file(data_dir, filename_map(k),...
-            ['Select the ', longname_map(k)], nii_ext);
+        if contains(filename_map(k),'.nii')
+            niiname_map(k) = try_find_file(data_dir, filename_map(k),...
+                ['Select the ', longname_map(k)], nii_ext);
+        else
+            niiname_map(k) = [data_dir, '/', k, '.nii'];
+            fn = dicm2nii(filename_map(k), data_dir, 0);
+            movefile([data_dir, '/', fn{1}, '.nii'], niiname_map(k));
+%             [V,~,~] = dicomreadVolume(filename_map(k));
+%             tmp = double(flip_image(squeeze(V)));
+%             save_nii(tmp, niiname_map(k));
+        end
     end
     
 %     niiname_map('t1_bfc') = try_find_file(data_dir, filename_map('t1-bfc'),...
@@ -47,11 +55,13 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
 %     isoname_map('t1_bfc') = '/temp/bias_field_isotropic.nii';
 %     isoname_map('t1_bfc') = try_find_file(data_dir, filename_map('t1-bfc'),...
 %                 'Select the T1 bias field estimate', nii_ext);
-    isoname_map('t1_bfc') = filename_map('t1-bfc');
-    isoname_map('pre') = '/temp/pre_reg_isotropic.nii';
+    if isKey(filename_map, 't1_bfc')
+        isoname_map('t1_bfc') = filename_map('t1_bfc');
+    end
+    isoname_map('pre') = '/temp/pre_isotropic.nii';
     isoname_map('art') = '/temp/20s_isotropic.nii';
-    isoname_map('pv') = '/temp/70s_reg_isotropic.nii';
-    isoname_map('t2') = '/temp/t2_bfc_reg_isotropic.nii';
+    isoname_map('pv') = '/temp/70s_isotropic.nii';
+    isoname_map('t2') = '/temp/t2_isotropic.nii';
             
     niiname_map('liver_seg') = fullfile(data_dir, '/temp/whole_liver.nii');
     
@@ -79,18 +89,22 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     [~,~,~] = mkdir([data_dir,'/temp']);
     
     % get pixel dims from arterial phase nifti
-    temp = load_nii(niiname_map('art'));
-    temp_res(1) = temp.hdr.dime.pixdim(2);
-    temp_res(2) = temp.hdr.dime.pixdim(3);
-    temp_res(3) = temp.hdr.dime.pixdim(4);
-    [N1,N2,N3] = size(double(flip_image(temp.img)));
+    art = load_nii(niiname_map('art'));
+    temp_res(1) = art.hdr.dime.pixdim(2);
+    temp_res(2) = art.hdr.dime.pixdim(3);
+    temp_res(3) = art.hdr.dime.pixdim(4);
+    [N1,N2,N3] = size(double(flip_image(art.img)));
     data.orig_dims = [N1 N2 N3];
-    
+
     %make niis from segs
     for seg = 1:length(segs)
         seg = segs{seg};
-        f=try_find_file(data_dir, filename_map(seg),...
-                    ['Select the ', longname_map(seg)], '*.ids');
+        if endsWith(data_dir, '/0')
+            f=filename_map(seg);
+        else
+            f=try_find_file(data_dir, filename_map(seg),...
+                        ['Select the ', longname_map(seg)], '*.ids');
+        end
         mask = get_mask(f, N1,N2,N3);
         nii = make_nii(flip_image(mask),temp_res);
         save_nii(nii,niiname_map(seg));
@@ -104,12 +118,23 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
             [data_dir,isoname_map(k)],...
             [R,R,R], verbose);
     end
+    
+    art = load_nii(fullfile(data_dir, isoname_map('art')));
+    t2 = load_nii(fullfile(data_dir, isoname_map('t2')));
+    if any(size(art.img) ~= size(t2.img))
+        [optimizer, metric] = imregconfig('multimodal');
+        t2.img = imregister(t2.img, art.img, 'affine', optimizer, metric);
+        t2.hdr.dime.dim(2:4) = size(t2.img);
+        save_nii(t2, fullfile(data_dir, isoname_map('t2')));
+    end
 %     end
 
     %% Load niis into data struct
     for k = {'pre','pv','t2','t1_bfc'}
         k = char(k);
-        data.(k) = get_nii_img(fullfile(data_dir, isoname_map(k)));
+        if isKey(isoname_map,k)
+            data.(k) = get_nii_img(fullfile(data_dir, isoname_map(k)));
+        end
     end
     for k = 1:length(segs)
         k = segs{k};
