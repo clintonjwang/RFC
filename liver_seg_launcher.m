@@ -6,7 +6,8 @@ function liver_seg_launcher
 % Computer-Assisted Intervention - MICCAI 2017. MICCAI 2017. Lecture Notes
 % in Computer Science, vol 10435. Springer, Cham
 % DOI https://doi.org/10.1007/978-3-319-66179-7_10
-
+    user_main('Single patient',true);
+    return
     button = questdlg(['This program segments livers from T1/T2 MRIs '...
         'into viable tumor, necrosis, vasculature and parenchyma using '...
         'a cascading random forest model (Treilhard et al., MICCAI 2017). '...

@@ -7,12 +7,13 @@ function user_main(mode, skipgui)
     if ~exist('skipgui','var') || isempty(skipgui)
         skipgui = true;
     end
-
-    addpath(genpath('../subroutines'));
+    
+    if ~isdeployed
+        addpath(genpath('../subroutines'));
+    end
 
     train_bool = false;
     model_dir = fullfile(pwd(),'models');
-    mask_dir = fullfile(pwd(),'masks');
     working_dir = fullfile(pwd(),'working_test');
 
     %% Take user input
@@ -39,6 +40,7 @@ function user_main(mode, skipgui)
         data_dir = working_dir;
         model_dir = config('models');
         mask_dir = config('mask_output');
+        save_features = strcmp(config('keep_features'),'yes') == 1;
         patients = {'0'};
         
     else
@@ -93,28 +95,28 @@ function user_main(mode, skipgui)
             end
         end
 
+        defaultans = {'no'};
+        if ~skipgui
+            prompt = {'Save features at the end of the run?'};%,...
+                    %'Is there a separate T1-w bias field correction?'};
+            dlg_title = 'Run options';
+            num_lines = 1;
+            answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+
+            if ~iscell(answer)
+                return
+            end
+        else
+            answer = defaultans;
+        end
+
+        save_features = strcmp(answer{1},'yes') == 1;
+
         patients = dir(data_dir);
         filenames = {patients.name};
         patients = filenames([patients.isdir]);
         patients = patients(3:end);
     end
-
-    defaultans = {'no'};
-    if ~skipgui
-        prompt = {'Save features at the end of the run?'};%,...
-                %'Is there a separate T1-w bias field correction?'};
-        dlg_title = 'Run options';
-        num_lines = 1;
-        answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
-
-        if ~iscell(answer)
-            return
-        end
-    else
-        answer = defaultans;
-    end
-
-    save_features = strcmp(answer{1},'yes') == 1;
 
     [~, ~, ~] = mkdir(mask_dir);
     [~, ~, ~] = mkdir(working_dir);
@@ -138,7 +140,12 @@ function user_main(mode, skipgui)
     toc
 
     % Train random forest model
-    tissue_classification(patients, model_dir, working_dir, train_bool, data_dir, mask_dir, []);
+    if strcmp(data_dir, working_dir)
+        data_dir = filename_map('liver_seg');
+    else
+        config = [];
+    end
+    tissue_classification(patients, model_dir, working_dir, train_bool, data_dir, mask_dir, config);
     toc
 
     if ~save_features

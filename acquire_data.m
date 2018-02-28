@@ -105,7 +105,7 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
             f=try_find_file(data_dir, filename_map(seg),...
                         ['Select the ', longname_map(seg)], '*.ids');
         end
-        mask = get_mask(f, N1,N2,N3);
+        mask = get_mask(f, filename_map('art'), [N1,N2,N3]);
         nii = make_nii(flip_image(mask),temp_res);
         save_nii(nii,niiname_map(seg));
     end
@@ -189,22 +189,22 @@ function data = acquire_data_single_pat(data_dir, train_bool, filename_map)
     [~, ~, ~] = rmdir([data_dir,'/temp'], 's');
 end
 
-function [mask] = get_mask(fpath,N1,N2,N3)
-
-    fileID = fopen(fpath);
-    A = fread(fileID);
-    ind = find(A);
-    [i, j, k]=ind2sub([N2,N1,N3],ind);
-    fclose('all');
-
-    mask = zeros(N1,N2,N3);
-    for count=1:length(i)
-        mask(i(count),j(count),k(count))=1;
-    end
-
-    mask = transpose_mask_slices(mask, 'r');
-
-end
+% function [mask] = get_mask(fpath,N1,N2,N3)
+% 
+%     fileID = fopen(fpath);
+%     A = fread(fileID);
+%     ind = find(A);
+%     [i, j, k]=ind2sub([N2,N1,N3],ind);
+%     fclose('all');
+% 
+%     mask = zeros(N1,N2,N3);
+%     for count=1:length(i)
+%         mask(i(count),j(count),k(count))=1;
+%     end
+% 
+%     mask = transpose_mask_slices(mask, 'r');
+% 
+% end
 
 function [contour] = get_contour(mask)
 

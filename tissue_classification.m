@@ -1,4 +1,4 @@
-function masks = tissue_classification(patients, model_dir, working_dir, train_bool, data_dir, mask_dir, config)
+function masks = tissue_classification(patients, model_dir, working_dir, train_bool, ics_dir, mask_dir, config)
 %TISSUE_CLASSIFICATION
 %   Detailed explanation goes here
     
@@ -7,6 +7,10 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
     if train_bool
         save([model_dir, '/tree_config.mat'], 'config');
     else
+        if exist('config','var') && ~isempty(config)
+            [~,spatial,~] = dicomreadVolume(config('art'));
+            vox_dims = [spatial.PixelSpacings(1:2), abs(spatial.PatientPositions(2,3) - spatial.PatientPositions(1,3))];
+        end
         load([model_dir, '/tree_config.mat']);
     end
 
@@ -37,109 +41,117 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
         voxel_data = load_wrapper([working_dir,'/voxel_data.mat']);
     end
     
-    start_r = 3;
-    for td=1:num_patients
-        if ~exist([working_dir, '/context_',patients{td},'_1.mat'], 'file')
-            start_r = 1;
-            break
-        end
-    end
-    if start_r > 2
+    %% Loop through rounds of auto-context
+    if ~exist([working_dir,'/results_',patients{1},'.mat'],'file')
+        start_r = 3;
         for td=1:num_patients
-            if ~exist([working_dir, '/context_',patients{td},'_2.mat'], 'file')
-                start_r = 2;
+            if ~exist([working_dir, '/context_',patients{td},'_1.mat'], 'file')
+                start_r = 1;
                 break
             end
         end
-    end
-    
-    %% Loop through rounds of auto-context
-    for r=start_r:RAC
-        %% Train random forest
-        if train_bool && ~exist([model_dir,'/tree_',num2str(r),'.mat'], 'file')
-            disp('Creating training data samples for random forest...');
-            if(r==1)
-                num_predictors = num_intensity_features;
-            else
-                num_predictors = num_intensity_features + num_context_features;
+        if start_r > 2
+            for td=1:num_patients
+                if ~exist([working_dir, '/context_',patients{td},'_2.mat'], 'file')
+                    start_r = 2;
+                    break
+                end
             end
-            voxel_data_subset = get_data_subset(T_par, T_other, patients,...
-                        voxel_data, r, num_intensity_features, num_context_features, working_dir);
-            
-            disp(['Fitting random forest (round ', num2str(r), ' of ', num2str(RAC), ')...']);
-            for t=1:ntrees
-                %bag training data
-                num_data_points = round(length(voxel_data_subset.labels) / 3);
-                bag = randi(length(voxel_data_subset.labels), [1,num_data_points]);
+        end
+
+        for r=start_r:RAC
+            %% Train random forest
+            if train_bool && ~exist([model_dir,'/tree_',num2str(r),'.mat'], 'file')
+                disp('Creating training data samples for random forest...');
                 if(r==1)
-                    tree_data = voxel_data_subset.features(bag,:);
+                    num_predictors = num_intensity_features;
                 else
-                    tree_data = [voxel_data_subset.features(bag,:), voxel_data_subset.acf(bag,:)];
+                    num_predictors = num_intensity_features + num_context_features;
                 end
+                voxel_data_subset = get_data_subset(T_par, T_other, patients,...
+                            voxel_data, r, num_intensity_features, num_context_features, working_dir);
 
-                C{t} = compact(fitctree(tree_data,voxel_data_subset.labels(bag,:),...
-                    'MinLeafSize',min_leaf_size,...
-                    'NumVariablesToSample',sqrt(num_predictors),...
-                    'SplitCriterion','deviance','Surrogate','on')); %opt
-            end
-            clear voxel_data_subset;
-            save_wrapper(C, [model_dir,'/tree_',num2str(r),'.mat']);
-            toc
-        else
-            disp(['Loading pre-trained forest for round ', num2str(r), '...']);
-            C = load_wrapper([model_dir,'/tree_',num2str(r),'.mat']);
-        end
-        
-        %% Classification - compute label probability maps for each tissue class and patient
-        disp('Computing tissue classification...');
-        locations = load_wrapper([working_dir,'/locations.mat']);
-        for td = 1:num_patients %parfor - requires ~15GB RAM to parallelize
-            disp(['	', num2str(td), ' of ', num2str(num_patients), '...']);
-            f = load_wrapper([working_dir,'/features_',patients{td},'.mat']);
-            cls = zeros(numel(f.locations),num_classes);
-            if r==1 %if first round of classification: appearance features only 
+                disp(['Fitting random forest (round ', num2str(r), ' of ', num2str(RAC), ')...']);
                 for t=1:ntrees
-                    [~,scores] = predict(C{t}, f.intensities);
-                    cls = cls + scores;
+                    %bag training data
+                    num_data_points = round(length(voxel_data_subset.labels) / 3);
+                    bag = randi(length(voxel_data_subset.labels), [1,num_data_points]);
+                    if(r==1)
+                        tree_data = voxel_data_subset.features(bag,:);
+                    else
+                        tree_data = [voxel_data_subset.features(bag,:), voxel_data_subset.acf(bag,:)];
+                    end
+
+                    C{t} = compact(fitctree(tree_data,voxel_data_subset.labels(bag,:),...
+                        'MinLeafSize',min_leaf_size,...
+                        'NumVariablesToSample',sqrt(num_predictors),...
+                        'SplitCriterion','deviance','Surrogate','on')); %opt
                 end
-            else %for subsequent rounds, incorporate auto-context features 
-                acf = load_context(patients{td}, r-1, num_context_features, working_dir);
-                for t=1:ntrees
-                    [~,scores] = predict(C{t},[f.intensities, acf]);
-                    cls = cls + scores;
-                end
-            end
-%             classification{td} = cls./ntrees;
-            cls = cls./ntrees;
-            
-            if r<RAC
-                data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
-                maps = generate_maps_dummy(cls,f.sz,locations{td},num_classes);
-                acf = [compute_patches(maps,locations{td},sl,data,sa),...
-                    compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
-                save_wrapper(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.mat']);
+                clear voxel_data_subset;
+                save_wrapper(C, [model_dir,'/tree_',num2str(r),'.mat']);
+                toc
             else
-                classification{td} = cls;
+                disp(['Loading pre-trained forest for round ', num2str(r), '...']);
+                C = load_wrapper([model_dir,'/tree_',num2str(r),'.mat']);
             end
-        end
-        toc
-        clear C f acf cls locations
 
-        % Compute auto-context features, unless it is the final iteration
-%         if r<RAC
-%             compute_autocontext_features(classification, sl, sa, patients,...
-%                 sl_spherical,num_bins,working_dir,r);
-%         end
+            %% Classification - compute label probability maps for each tissue class and patient
+            disp('Computing tissue classification...');
+            locations = load_wrapper([working_dir,'/locations.mat']);
+            for td = 1:num_patients %parfor - requires ~15GB RAM to parallelize
+                disp(['	', num2str(td), ' of ', num2str(num_patients), '...']);
+                f = load_wrapper([working_dir,'/features_',patients{td},'.mat']);
+                cls = zeros(numel(f.locations),num_classes);
+                if r==1 %if first round of classification: appearance features only 
+                    for t=1:ntrees
+                        [~,scores] = predict(C{t}, f.intensities);
+                        cls = cls + scores;
+                    end
+                else %for subsequent rounds, incorporate auto-context features 
+                    acf = load_context(patients{td}, r-1, num_context_features, working_dir);
+                    for t=1:ntrees
+                        [~,scores] = predict(C{t},[f.intensities, acf]);
+                        cls = cls + scores;
+                    end
+                end
+    %             classification{td} = cls./ntrees;
+                cls = cls./ntrees;
+
+                if r<RAC
+                    data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
+                    maps = generate_maps_dummy(cls,f.sz,locations{td},num_classes);
+                    acf = [compute_patches(maps,locations{td},sl,data,sa),...
+                        compute_patches_spherical(maps,locations{td},sl_spherical,data,num_bins)];
+                    save_wrapper(acf, [working_dir, '/context_',patients{td},'_',num2str(r),'.mat']);
+                else
+                    classification{td} = cls;
+                end
+            end
+            toc
+            clear C f acf cls locations
+
+            % Compute auto-context features, unless it is the final iteration
+    %         if r<RAC
+    %             compute_autocontext_features(classification, sl, sa, patients,...
+    %                 sl_spherical,num_bins,working_dir,r);
+    %         end
+        end
     end
     
     %% Produce masks
     if ~train_bool
         disp('Creating masks...');
         for td=1:num_patients
+            if ~exist([working_dir,'/results_',patients{td},'.mat'],'file')
+                save_wrapper(classification{td}, [working_dir,'/results_',patients{td},'.mat']);
+                scores = classification{td};
+            else
+                scores = load_wrapper([working_dir,'/results_',patients{td},'.mat']);
+            end
+                
             f = load_wrapper([working_dir,'/small_features_',patients{td},'.mat']);
             data = load_wrapper([working_dir,'/norm_data_',patients{td},'.mat']);
-
-            scores = classification{td};
+            
             pred_labels = (scores(:,2)>scores(:,1)) .* (scores(:,2)>scores(:,3)).* (scores(:,2)>scores(:,4)) + ...
                  2 * (scores(:,3)>scores(:,1)) .* (scores(:,3)>scores(:,2)).* (scores(:,3)>scores(:,4)) + ...
                  3 * (scores(:,4)>scores(:,1)) .* (scores(:,4)>scores(:,2)).* (scores(:,4)>scores(:,3));
@@ -149,24 +161,32 @@ function masks = tissue_classification(patients, model_dir, working_dir, train_b
             for pix_idx = 1:length(f.locations)
                 pred_img(f.locations(pix_idx)) = pred_labels(pix_idx);
             end
-
-            pad_img = padarray(pred_img, data.iso_full_size - data.cutoffs_high, 0, 'post');
-            pad_img = padarray(pad_img, data.cutoffs_low - 1, 0, 'pre');
-            rescaled_img = round(imresize3(pad_img, data.orig_dims));
-%                 rescaled_img = pred_img;
+            
+%             rescaled_img = rot90(pred_img,2);
+%             rescaled_img = permute(rescaled_img, [2,1,3]);
+            rescaled_img = flip(pred_img,3);
+            rescaled_img = padarray(rescaled_img, data.iso_full_size - data.cutoffs_high, 0, 'post');
+            rescaled_img = padarray(rescaled_img, data.cutoffs_low - 1, 0, 'pre');
+            rescaled_img = round(imresize3(rescaled_img, data.orig_dims));
+            rescaled_img = rot90(rescaled_img,2);
+            rescaled_img = permute(rescaled_img, [2,1,3]);
+            rescaled_img = flip(rescaled_img,3);
             paren_mask = rescaled_img == 1;
             viatumor_mask = rescaled_img == 2;
             vasc_mask = rescaled_img == 3;
             nec_mask = rescaled_img == 4;
 
             masks{td} = {viatumor_mask, nec_mask, vasc_mask, paren_mask};
-            [~,~,~]=mkdir(mask_dir);
     %             [vasc_mask, nec_mask, viatumor_mask, paren_mask] = get_masks(classification{td});
             if exist('mask_dir','var') && ~isempty(mask_dir)
-                write_ids_mask(paren_mask, data_dir, mask_dir, [patients{td}, '_paren_mask']);
-                write_ids_mask(viatumor_mask, data_dir, mask_dir, [patients{td}, '_enhtumor_mask']);
-                write_ids_mask(vasc_mask, data_dir, mask_dir, [patients{td}, '_vasc_mask']);
-                write_ids_mask(nec_mask, data_dir, mask_dir, [patients{td}, '_necro_mask']);
+                if ~exist('vox_dims','var') || isempty(vox_dims)
+                    vox_dims = [];
+                end
+                [~,~,~]=mkdir(mask_dir);
+                write_ids_mask(paren_mask, ics_dir, mask_dir, [patients{td}, '_paren_mask'], [], vox_dims);
+                write_ids_mask(viatumor_mask, ics_dir, mask_dir, [patients{td}, '_enhtumor_mask'], [], vox_dims);
+                write_ids_mask(vasc_mask, ics_dir, mask_dir, [patients{td}, '_vasc_mask'], [], vox_dims);
+                write_ids_mask(nec_mask, ics_dir, mask_dir, [patients{td}, '_necro_mask'], [], vox_dims);
             end
         end
     end
